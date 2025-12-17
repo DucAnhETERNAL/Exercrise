@@ -1,0 +1,5 @@
+{
+  "name": "GenEnglish - AI Exercise Generator",
+  "description": "Generate custom English exercises (Grammar, Vocabulary, Reading, Listening) based on CEFR levels and specific topics using Gemini 2.5.",
+  "requestFramePermissions": []
+}
