@@ -57,7 +57,6 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
       source.start(0);
       setIsPlaying(true);
     } catch (error) {
-      console.error("Failed to play audio", error);
       alert("Could not generate audio at this time.");
     } finally {
       setIsLoadingAudio(false);

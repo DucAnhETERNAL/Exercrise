@@ -9,7 +9,8 @@ declare global {
 // CẤU HÌNH GOOGLE DRIVE
 // Client ID bạn đã cung cấp
 const CLIENT_ID = '996603187510-dat989np34dietf2enqu46q3sdsf03km.apps.googleusercontent.com'; 
-const API_KEY = process.env.API_KEY || ''; 
+// Sử dụng DRIVE_API_KEY riêng biệt với Gemini API key
+const DRIVE_API_KEY = (process.env as any).DRIVE_API_KEY || ''; 
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
 const SCOPES = "https://www.googleapis.com/auth/drive.file";
 
@@ -17,24 +18,73 @@ let tokenClient: any;
 let gapiInited = false;
 let gisInited = false;
 
-export const initDriveApi = async (): Promise<void> => {
-  return new Promise((resolve) => {
+export const initDriveApi = async (retries: number = 3): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    // Timeout after 30 seconds
+    const timeoutId = setTimeout(() => {
+      reject(new Error('Timeout: Google API scripts took too long to load. Please refresh the page and try again.'));
+    }, 30000);
+
     const checkInit = () => {
       if (window.gapi && window.google) {
+        clearTimeout(timeoutId);
         window.gapi.load('client', async () => {
-          await window.gapi.client.init({
-            apiKey: API_KEY,
-            discoveryDocs: DISCOVERY_DOCS,
-          });
-          gapiInited = true;
-          
-          tokenClient = window.google.accounts.oauth2.initTokenClient({
-            client_id: CLIENT_ID,
-            scope: SCOPES,
-            callback: '', // defined later within auth flow
-          });
-          gisInited = true;
-          resolve();
+          try {
+            // Add timeout for API initialization
+            const initPromise = window.gapi.client.init({
+              apiKey: DRIVE_API_KEY,
+              discoveryDocs: DISCOVERY_DOCS,
+            });
+            
+            // Race between init and timeout
+            await Promise.race([
+              initPromise,
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('API initialization timeout')), 15000)
+              )
+            ]);
+            
+            gapiInited = true;
+            
+            tokenClient = window.google.accounts.oauth2.initTokenClient({
+              client_id: CLIENT_ID,
+              scope: SCOPES,
+              callback: '', // defined later within auth flow
+            });
+            gisInited = true;
+            resolve();
+          } catch (error: any) {
+            // Retry logic for 502/503 errors or network issues
+            const isRetryableError = 
+              error.status === 502 || 
+              error.status === 503 || 
+              error.status === 0 ||
+              error.message?.includes('502') || 
+              error.message?.includes('503') ||
+              error.message?.includes('Bad Gateway') ||
+              error.message?.includes('Service Unavailable') ||
+              error.message?.includes('timeout') ||
+              error.message?.includes('API discovery response missing');
+            
+            if (retries > 0 && isRetryableError) {
+              await new Promise(resolve => setTimeout(resolve, 2000 * (4 - retries))); // Exponential backoff
+              return initDriveApi(retries - 1).then(resolve).catch(reject);
+            }
+            
+            // Check if API key is missing
+            if (!DRIVE_API_KEY) {
+              reject(new Error('DRIVE_API_KEY is not set. Please check your environment variables. Note: Google Drive API requires a separate API key from Gemini API. Add DRIVE_API_KEY to your .env file.'));
+              return;
+            }
+            
+            // Provide helpful error message
+            let errorMessage = `Failed to initialize Google Drive API: ${error.message || 'Unknown error'}`;
+            if (error.status === 502 || error.message?.includes('502')) {
+              errorMessage += '\n\nThis is usually a temporary Google server issue. The app will automatically retry. If the problem persists:\n1. Check your internet connection\n2. Verify your DRIVE_API_KEY is valid and has Drive API enabled\n3. Ensure Google Drive API is enabled in Google Cloud Console\n4. Make sure DRIVE_API_KEY is set in your .env file';
+            }
+            
+            reject(new Error(errorMessage));
+          }
         });
       } else {
         setTimeout(checkInit, 100);
@@ -56,7 +106,6 @@ const handleAuthClick = (): Promise<void> => {
       clearTimeout(timeoutId); // Xóa timeout nếu nhận được phản hồi
       
       if (resp.error !== undefined) {
-        console.error("Auth Error:", resp);
         reject(resp);
         return;
       }
@@ -85,9 +134,8 @@ export const uploadToDrive = async (content: object, filename: string): Promise<
   try {
     await handleAuthClick(); 
   } catch (error: any) {
-    console.error("Authentication Failed:", error);
     // Ném lỗi rõ ràng để UI hiển thị
-    throw new Error(error.message || "Đăng nhập Google thất bại. Vui lòng kiểm tra console.");
+    throw new Error(error.message || "Đăng nhập Google thất bại.");
   }
 
   const accessToken = window.gapi.client.getToken().access_token;
@@ -134,7 +182,6 @@ export const uploadToDrive = async (content: object, filename: string): Promise<
 
     if (!response.ok) {
         const errorText = await response.text();
-        console.error("Drive Upload Error Details:", errorText);
         
         if (response.status === 403) {
         throw new Error("Lỗi quyền truy cập (403). Vui lòng đảm bảo bạn đã bật 'Google Drive API' trong Google Cloud Console.");
@@ -157,7 +204,6 @@ export const uploadToDrive = async (content: object, filename: string): Promise<
 
     return fileId;
   } catch (err: any) {
-      console.error("Upload Fetch Error:", err);
       throw new Error("Lỗi mạng khi upload: " + err.message);
   }
 };
@@ -165,18 +211,14 @@ export const uploadToDrive = async (content: object, filename: string): Promise<
 /**
  * Loads JSON content from a public Drive file using the API Key.
  */
-export const loadFromDrive = async (fileId: string): Promise<any> => {
+export const loadFromDrive = async (fileId: string, retries: number = 3): Promise<any> => {
   if (!gapiInited) {
     // Chỉ cần gapi client để đọc file public thông qua API Key
-    await new Promise<void>(resolve => {
-        window.gapi.load('client', async () => {
-            await window.gapi.client.init({
-                apiKey: API_KEY,
-                discoveryDocs: DISCOVERY_DOCS,
-            });
-            resolve();
-        })
-    });
+    try {
+      await initDriveApi();
+    } catch (error: any) {
+      throw new Error(`Failed to initialize Google Drive API: ${error.message}`);
+    }
   }
 
   try {
@@ -185,8 +227,21 @@ export const loadFromDrive = async (fileId: string): Promise<any> => {
       alt: 'media', // Quan trọng: tải nội dung file
     });
     return response.result;
-  } catch (error) {
-    console.error("Error loading file from Drive", error);
-    throw new Error("Không thể tải file. File có thể đã bị xóa hoặc bạn không có quyền truy cập.");
+  } catch (error: any) {
+    // Retry logic for network errors
+    if (retries > 0 && (error.status === 502 || error.status === 503 || error.status === 0)) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return loadFromDrive(fileId, retries - 1);
+    }
+    
+    if (error.status === 404) {
+      throw new Error("Không thể tải file. File có thể đã bị xóa hoặc không tồn tại.");
+    }
+    
+    if (error.status === 403) {
+      throw new Error("Không có quyền truy cập file. File có thể chưa được chia sẻ công khai.");
+    }
+    
+    throw new Error(`Không thể tải file: ${error.message || 'Lỗi không xác định'}`);
   }
 };

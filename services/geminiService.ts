@@ -1,8 +1,48 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { UserPreferences, ExerciseType, GeneratedContent, VideoAnalysisResult, CefrLevel } from "../types";
+import { UserPreferences, ExerciseType, GeneratedContent, VideoAnalysisResult, CefrLevel, LoadingStatus } from "../types";
 
 // Use process.env.API_KEY as primary source.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+/**
+ * Retry wrapper for Gemini API calls with exponential backoff.
+ * Handles 503 (Service Unavailable) and other retryable errors.
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries: number = 3,
+  operationName: string = "API call"
+): Promise<T> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      // Check multiple error formats from the SDK
+      const errorCode = error?.code || error?.error?.code;
+      const errorStatus = error?.status || error?.error?.status;
+      const errorMessage = error?.message || error?.error?.message || JSON.stringify(error);
+      
+      const isRetryable = 
+        errorCode === 503 ||
+        errorStatus === 503 ||
+        errorStatus === "UNAVAILABLE" ||
+        errorMessage?.includes('503') ||
+        errorMessage?.includes('overloaded') ||
+        errorMessage?.includes('Service Unavailable') ||
+        errorMessage?.includes('UNAVAILABLE');
+
+      if (isRetryable && attempt < retries) {
+        const delay = Math.min(2000 * Math.pow(2, attempt), 10000); // Exponential backoff, max 10s
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      // If not retryable or out of retries, throw the error
+      throw error;
+    }
+  }
+  throw new Error("Retry logic failed unexpectedly");
+}
 
 /**
  * Helper to extract frames from a video file evenly distributed across its duration.
@@ -21,57 +61,127 @@ const extractFramesFromVideo = async (videoFile: File, frameCount: number = 20):
     video.src = videoUrl;
     video.muted = true;
     video.playsInline = true;
+    video.preload = 'metadata';
     video.crossOrigin = "anonymous";
 
-    video.onloadedmetadata = async () => {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const duration = video.duration;
-      
-      // Calculate timestamps to capture
-      const timePoints: number[] = [];
-      for (let i = 0; i < frameCount; i++) {
-        // distribute frames from 2% to 98% of the video to catch intro and summary
-        const percent = 0.02 + (0.96 * i / (frameCount - 1));
-        timePoints.push(duration * percent);
-      }
+    const MAX_DIMENSION = 800;
+    let cleanupDone = false;
 
+    const cleanup = () => {
+      if (cleanupDone) return;
+      cleanupDone = true;
       try {
-        for (const time of timePoints) {
-          await new Promise<void>((seekResolve) => {
-            video.currentTime = time;
-            // Wait for seek to complete
-            const onSeeked = () => {
-              video.removeEventListener('seeked', onSeeked);
-              // Draw frame
-              if (ctx) {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                // Export to base64 (JPEG 0.5 quality for compactness allow sending more frames)
-                const base64String = canvas.toDataURL('image/jpeg', 0.5);
-                frames.push({
-                  inlineData: {
-                    data: base64String.split(',')[1],
-                    mimeType: 'image/jpeg',
-                  }
-                });
-              }
-              seekResolve();
-            };
-            video.addEventListener('seeked', onSeeked);
-          });
-        }
-        resolve(frames);
-      } catch (e) {
-        reject(e);
-      } finally {
         URL.revokeObjectURL(videoUrl);
+        video.src = ''; // Clear src to stop loading
         video.remove();
         canvas.remove();
+      } catch (e) {
+        // Cleanup error ignored
       }
     };
 
-    video.onerror = () => {
-      reject(new Error("Could not load video file."));
+    // Timeout for entire operation (30 seconds per frame * frameCount, max 5 minutes)
+    const globalTimeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Video frame extraction timeout after ${frameCount * 30}s`));
+    }, Math.min(frameCount * 30000, 300000));
+
+    video.onloadedmetadata = async () => {
+      try {
+        clearTimeout(globalTimeout); // Clear global timeout once metadata is loaded
+        
+        const originalWidth = video.videoWidth;
+        const originalHeight = video.videoHeight;
+        
+        if (!originalWidth || !originalHeight) {
+          throw new Error("Video metadata invalid");
+        }
+
+        // Calculate scaled dimensions
+        let width = originalWidth;
+        let height = originalHeight;
+        
+        if (width > height) {
+          if (width > MAX_DIMENSION) {
+            height = Math.round(height * MAX_DIMENSION / width);
+            width = MAX_DIMENSION;
+          }
+        } else {
+          if (height > MAX_DIMENSION) {
+            width = Math.round(width * MAX_DIMENSION / height);
+            height = MAX_DIMENSION;
+          }
+        }
+        
+        // Set canvas to scaled dimensions (not original)
+        canvas.width = width;
+        canvas.height = height;
+        
+        const duration = video.duration;
+        if (!duration || isNaN(duration)) {
+          throw new Error("Video duration invalid");
+        }
+        
+        // Calculate timestamps to capture
+        const timePoints: number[] = [];
+        for (let i = 0; i < frameCount; i++) {
+          // distribute frames from 2% to 98% of the video to catch intro and summary
+          const percent = 0.02 + (0.96 * i / (frameCount - 1));
+          timePoints.push(duration * percent);
+        }
+
+        // Extract frames sequentially
+        for (let i = 0; i < timePoints.length; i++) {
+          const time = timePoints[i];
+          
+          await new Promise<void>((seekResolve, seekReject) => {
+            // Timeout for seek operation (5 seconds per frame)
+            const timeoutId = setTimeout(() => {
+              video.removeEventListener('seeked', onSeeked);
+              seekReject(new Error(`Timeout seeking to ${time.toFixed(2)}s`));
+            }, 5000);
+
+            const onSeeked = () => {
+              clearTimeout(timeoutId);
+              video.removeEventListener('seeked', onSeeked);
+              
+              try {
+                // Draw frame with scaled dimensions
+                if (ctx && video.readyState >= 2) { // HAVE_CURRENT_DATA
+                  ctx.drawImage(video, 0, 0, width, height);
+                  // Export to base64
+                  const base64String = canvas.toDataURL('image/jpeg', 0.4);
+                  frames.push({
+                    inlineData: {
+                      data: base64String.split(',')[1],
+                      mimeType: 'image/jpeg',
+                    }
+                  });
+                }
+                seekResolve();
+              } catch (e) {
+                seekReject(e);
+              }
+            };
+            
+            video.addEventListener('seeked', onSeeked);
+            video.currentTime = time;
+          });
+        }
+        
+        cleanup();
+        resolve(frames);
+      } catch (e) {
+        cleanup();
+        clearTimeout(globalTimeout);
+        reject(e);
+      }
+    };
+
+    video.onerror = (e) => {
+      cleanup();
+      clearTimeout(globalTimeout);
+      reject(new Error(`Could not load video file: ${video.error?.message || 'Unknown error'}`));
     };
   });
 };
@@ -80,11 +190,14 @@ const extractFramesFromVideo = async (videoFile: File, frameCount: number = 20):
  * Analyzes a video file to determine CEFR Level, Topic, Vocab, and Grammar.
  * Uses frame extraction to "see" the entire video content.
  */
-export const analyzeVideoForPreferences = async (videoFile: File): Promise<VideoAnalysisResult> => {
+export const analyzeVideoForPreferences = async (
+  videoFile: File,
+  onStatusUpdate?: (status: LoadingStatus) => void
+): Promise<VideoAnalysisResult> => {
   const model = "gemini-2.5-flash"; // Flash handles multiple images well
 
   try {
-    console.log(`Analyzing video: ${videoFile.name} (${(videoFile.size / 1024 / 1024).toFixed(2)} MB)`);
+    if (onStatusUpdate) onStatusUpdate('analyzing_video');
     
     // Extract frames (increased to 20 for better coverage)
     const frames = await extractFramesFromVideo(videoFile, 20); 
@@ -118,23 +231,40 @@ export const analyzeVideoForPreferences = async (videoFile: File): Promise<Video
       parts: [...frames, { text: prompt }]
     };
 
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: contents,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-      },
-    });
+    const response = await withRetry(
+      () => ai.models.generateContent({
+        model: model,
+        contents: contents,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+        },
+      }),
+      3,
+      "Video analysis"
+    );
 
     const text = response.text;
     if (!text) throw new Error("No analysis generated");
 
     return JSON.parse(text) as VideoAnalysisResult;
 
-  } catch (error) {
-    console.error("Video Analysis Error:", error);
-    throw new Error("Failed to analyze video frames. Ensure the video format is supported by your browser.");
+  } catch (error: any) {
+    // Check multiple error formats
+    const errorCode = error?.code || error?.error?.code;
+    const errorStatus = error?.status || error?.error?.status;
+    const errorMessage = error?.message || error?.error?.message || "Unknown error";
+    
+    // Provide more specific error messages
+    if (errorCode === 503 || errorStatus === 503 || errorStatus === "UNAVAILABLE" || errorMessage?.includes('overloaded')) {
+      throw new Error("Gemini model is currently overloaded. Please try again in a few moments.");
+    }
+    
+    if (errorMessage?.includes('API_KEY') || errorCode === 401 || errorStatus === 401) {
+      throw new Error("Invalid API key. Please check your GEMINI_API_KEY in environment variables.");
+    }
+    
+    throw new Error(`Failed to analyze video: ${errorMessage}. Ensure the video format is supported by your browser.`);
   }
 };
 
@@ -147,15 +277,19 @@ export const generateImage = async (promptText: string): Promise<string | undefi
   try {
     const prompt = `Draw a clean, educational digital illustration suitable for an English learning flashcard representing: ${promptText}. No text inside the image.`;
     
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: { parts: [{ text: prompt }] },
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1", // Square aspect ratio for flashcard style
+    const response = await withRetry(
+      () => ai.models.generateContent({
+        model: model,
+        contents: { parts: [{ text: prompt }] },
+        config: {
+          imageConfig: {
+            aspectRatio: "1:1", // Square aspect ratio for flashcard style
+          }
         }
-      }
-    });
+      }),
+      2, // Fewer retries for image generation (non-critical)
+      "Image generation"
+    );
 
     // Extract image from response
     if (response.candidates?.[0]?.content?.parts) {
@@ -167,7 +301,6 @@ export const generateImage = async (promptText: string): Promise<string | undefi
     }
     return undefined;
   } catch (error) {
-    console.warn("Image Generation Error:", error);
     return undefined; // Fail silently
   }
 };
@@ -175,16 +308,21 @@ export const generateImage = async (promptText: string): Promise<string | undefi
 /**
  * Generates the text-based exercises using a structured JSON schema.
  */
-export const generateExercises = async (prefs: UserPreferences): Promise<GeneratedContent> => {
+export const generateExercises = async (
+  prefs: UserPreferences, 
+  onStatusUpdate?: (status: LoadingStatus) => void
+): Promise<GeneratedContent> => {
   const model = "gemini-2.5-flash";
 
+  if (onStatusUpdate) onStatusUpdate('generating_content');
+
   const prompt = `
-    Create a set of English exercises for a student at CEFR Level ${prefs.level}.
+    Create a set of English exercises for daily assessment.
     
     Context & Requirements:
     - Topic/Theme: ${prefs.topic || "General"}
-    - Target Vocabulary: ${prefs.vocabulary || "Mixed suitable for level"}
-    - Target Grammar: ${prefs.grammarFocus || "Mixed suitable for level"}
+    - Target Vocabulary: ${prefs.vocabulary || "Mixed vocabulary"}
+    - Target Grammar: ${prefs.grammarFocus || "Mixed grammar"}
     - Question Count per Section: ${prefs.questionCount}
     - Required Section Types: ${prefs.selectedTypes.join(", ")}
 
@@ -195,7 +333,7 @@ export const generateExercises = async (prefs: UserPreferences): Promise<Generat
       - The 'questionText' should be generic like "Choose the word that matches the image" or "What is this?".
       - Provide 3 distractors in 'options'.
     
-    Ensure the English is natural and strictly adheres to the ${prefs.level} level difficulty.
+    Ensure the English is natural and appropriate for daily practice.
     Return the response as a valid JSON object matching the schema.
   `;
 
@@ -250,15 +388,19 @@ export const generateExercises = async (prefs: UserPreferences): Promise<Generat
 
   try {
     // 1. Generate Text Content
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-        temperature: 0.7, 
-      },
-    });
+    const response = await withRetry(
+      () => ai.models.generateContent({
+        model: model,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+          temperature: 0.7, 
+        },
+      }),
+      3,
+      "Exercise generation"
+    );
 
     const text = response.text;
     if (!text) throw new Error("No response text generated");
@@ -272,7 +414,6 @@ export const generateExercises = async (prefs: UserPreferences): Promise<Generat
 
     // Safety check: ensure sections exists to prevent 'undefined reading forEach' error
     if (!content || !Array.isArray(content.sections)) {
-        console.warn("AI response missing 'sections' array. Initializing empty array.", content);
         content = { sections: [] };
     }
 
@@ -282,6 +423,9 @@ export const generateExercises = async (prefs: UserPreferences): Promise<Generat
 
     content.sections.forEach(section => {
       if (section.type === ExerciseType.IMAGE_MATCHING && Array.isArray(section.questions)) {
+        if (onStatusUpdate && imageGenerationPromises.length === 0) {
+            onStatusUpdate('generating_images');
+        }
         section.questions.forEach(question => {
           // Push a promise to generate an image for this specific question
           imageGenerationPromises.push((async () => {
@@ -300,8 +444,21 @@ export const generateExercises = async (prefs: UserPreferences): Promise<Generat
     }
 
     return content;
-  } catch (error) {
-    console.error("GenAI Error:", error);
+  } catch (error: any) {
+    // Check multiple error formats
+    const errorCode = error?.code || error?.error?.code;
+    const errorStatus = error?.status || error?.error?.status;
+    const errorMessage = error?.message || error?.error?.message || "Unknown error";
+    
+    // Provide more specific error messages
+    if (errorCode === 503 || errorStatus === 503 || errorStatus === "UNAVAILABLE" || errorMessage?.includes('overloaded')) {
+      throw new Error("Gemini model is currently overloaded. Please try again in a few moments.");
+    }
+    
+    if (errorMessage?.includes('API_KEY') || errorCode === 401 || errorStatus === 401) {
+      throw new Error("Invalid API key. Please check your GEMINI_API_KEY in environment variables.");
+    }
+    
     throw error;
   }
 };
@@ -313,18 +470,22 @@ export const generateAudio = async (text: string): Promise<AudioBuffer> => {
   const model = "gemini-2.5-flash-preview-tts";
 
   try {
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: [{ parts: [{ text }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Aoede' }, // 'Aoede' is a good clear voice
+    const response = await withRetry(
+      () => ai.models.generateContent({
+        model: model,
+        contents: [{ parts: [{ text }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Aoede' }, // 'Aoede' is a good clear voice
+            },
           },
         },
-      },
-    });
+      }),
+      3,
+      "Audio generation"
+    );
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) {
@@ -343,7 +504,6 @@ export const generateAudio = async (text: string): Promise<AudioBuffer> => {
     return audioBuffer;
 
   } catch (error) {
-    console.error("TTS Error:", error);
     throw error;
   }
 };

@@ -15,6 +15,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1cbA5EF8SR_GPn5d4a9KFeO
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Create a `.env.local` file and set the following environment variables:
+   - `GEMINI_API_KEY`: Your Gemini API key (for AI exercise generation)
+   - `DRIVE_API_KEY`: Your Google Drive API key (for Drive file operations)
 3. Run the app:
    `npm run dev`

@@ -19,7 +19,6 @@ export interface UserPreferences {
   topic: string;
   vocabulary: string;
   grammarFocus: string;
-  level: CefrLevel;
   selectedTypes: ExerciseType[];
   questionCount: number;
 }
@@ -52,3 +51,27 @@ export interface VideoAnalysisResult {
   vocabulary: string;
   grammarFocus: string;
 }
+
+export interface StudentSubmission {
+  type: 'submission';
+  studentName: string;
+  originalFileId: string | null; // ID of the exercise file
+  score: { correct: number; total: number };
+  feedback?: string; // Student feedback
+  timestamp: number;
+}
+
+export interface GoogleFormConfig {
+  formUrl: string; // The "formResponse" URL
+  nameEntryId: string; // entry.123456 for Name
+  scoreEntryId: string; // entry.654321 for Score
+  feedbackEntryId: string; // entry.789012 for Feedback
+}
+
+export type LoadingStatus = 
+  | 'idle' 
+  | 'analyzing_video' 
+  | 'generating_content' 
+  | 'generating_images' 
+  | 'loading_drive'
+  | 'uploading';

@@ -1,19 +1,22 @@
 import React, { useRef, useState } from 'react';
-import { CefrLevel, ExerciseType, UserPreferences } from '../types';
-import { Type, GraduationCap, LayoutList, Hash, Video, Upload, Loader2 } from 'lucide-react';
+import { CefrLevel, ExerciseType, UserPreferences, LoadingStatus } from '../types';
+import { Type, LayoutList, Hash, Video, Upload, Loader2 } from 'lucide-react';
 import { analyzeVideoForPreferences } from '../services/geminiService';
 
 interface InputFormProps {
   preferences: UserPreferences;
   onChange: (prefs: UserPreferences) => void;
   onSubmit: () => void;
-  isLoading: boolean;
+  loadingStatus: LoadingStatus;
+  onVideoAnalysisStatusChange?: (status: LoadingStatus) => void;
 }
 
-const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, isLoading }) => {
+const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, loadingStatus, onVideoAnalysisStatusChange }) => {
   const [analyzingVideo, setAnalyzingVideo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const isLoading = loadingStatus !== 'idle';
+  
   const handleChange = <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
     onChange({ ...preferences, [key]: value });
   };
@@ -32,21 +35,27 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
     if (!file) return;
 
     setAnalyzingVideo(true);
+    if (onVideoAnalysisStatusChange) {
+      onVideoAnalysisStatusChange('analyzing_video');
+    }
+    
     try {
-      const result = await analyzeVideoForPreferences(file);
+      const result = await analyzeVideoForPreferences(file, onVideoAnalysisStatusChange);
       // Auto-populate
       onChange({
         ...preferences,
-        level: result.level,
         topic: result.topic,
         vocabulary: result.vocabulary,
         grammarFocus: result.grammarFocus,
       });
-    } catch (error) {
-      alert("Failed to analyze video. Please try a different file.");
-      console.error(error);
+    } catch (error: any) {
+      const errorMessage = error?.message || "Failed to analyze video";
+      alert(errorMessage + (errorMessage.includes("overloaded") ? "\n\nThe system will automatically retry. Please wait a moment and try again." : ""));
     } finally {
       setAnalyzingVideo(false);
+      if (onVideoAnalysisStatusChange) {
+        onVideoAnalysisStatusChange('idle');
+      }
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -92,35 +101,18 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
       </div>
       
       <div className="space-y-6">
-        {/* Level & Topic */}
-        <div className="grid grid-cols-1 gap-6">
-          <div>
-            <label className="block text-base font-semibold text-slate-700 mb-2">CEFR Level</label>
-            <div className="relative">
-              <GraduationCap className="absolute left-4 top-4 w-5 h-5 text-slate-400" />
-              <select
-                className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none appearance-none bg-white text-black text-lg shadow-sm"
-                value={preferences.level}
-                onChange={(e) => handleChange('level', e.target.value as CefrLevel)}
-              >
-                {Object.values(CefrLevel).map((lvl) => (
-                  <option key={lvl} value={lvl}>{lvl}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-base font-semibold text-slate-700 mb-2">Topic / Theme</label>
-            <div className="relative">
-              <Type className="absolute left-4 top-4 w-5 h-5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="e.g. Travel, Business, Technology"
-                className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-black text-lg shadow-sm"
-                value={preferences.topic}
-                onChange={(e) => handleChange('topic', e.target.value)}
-              />
-            </div>
+        {/* Topic */}
+        <div>
+          <label className="block text-base font-semibold text-slate-700 mb-2">Topic / Theme</label>
+          <div className="relative">
+            <Type className="absolute left-4 top-4 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="e.g. Travel, Business, Technology"
+              className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-black text-lg shadow-sm"
+              value={preferences.topic}
+              onChange={(e) => handleChange('topic', e.target.value)}
+            />
           </div>
         </div>
 
