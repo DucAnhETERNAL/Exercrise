@@ -150,6 +150,22 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
   const isCorrect = userSelected === question.correctAnswer;
   const isListening = sectionType === ExerciseType.LISTENING;
 
+  // Speak option text when clicked (only for non-listening exercises)
+  const speakOption = (text: string) => {
+    if (isListening) return; // Don't speak for listening exercises
+    
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    
+    window.speechSynthesis.speak(utterance);
+  };
+
   // Convert base64 audio to blob URL for HTML5 audio player (cost-optimized: reuse pre-generated audio)
   const getAudioUrl = () => {
     if (!question.audioData) return undefined;
@@ -301,7 +317,13 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
               return (
                 <button
                   key={i}
-                  onClick={() => !isSubmitted && onSelect(opt)}
+                  onClick={() => {
+                    if (!isSubmitted) {
+                      onSelect(opt);
+                      // Speak the option when clicked (only for non-listening)
+                      speakOption(opt);
+                    }
+                  }}
                   disabled={isSubmitted || showAnswer}
                   className={`text-left px-5 py-4 border rounded-xl text-base transition-all duration-200 ${buttonClass} ${!showOptionText ? 'justify-center text-center' : ''}`}
                 >

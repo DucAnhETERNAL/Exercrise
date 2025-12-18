@@ -411,7 +411,7 @@ export const generateExercises = async (
             },
             title: { type: Type.STRING },
             instruction: { type: Type.STRING },
-            contextText: { type: Type.STRING, description: "Reading passage or listening script" },
+            contextText: { type: Type.STRING, description: "ONLY for Reading Comprehension sections. DO NOT use for Listening (each question is independent)." },
             questions: {
               type: Type.ARRAY,
               items: {
@@ -470,6 +470,13 @@ export const generateExercises = async (
     if (!content || !Array.isArray(content.sections)) {
         content = { sections: [] };
     }
+
+    // Clean up: Remove contextText from Listening sections (legacy format)
+    content.sections.forEach(section => {
+      if (section.type === ExerciseType.LISTENING && section.contextText) {
+        delete section.contextText;
+      }
+    });
 
     // 2. Post-process: Generate Images for Vocabulary and Listening sections
     // We do this by creating a list of promises to run in parallel
