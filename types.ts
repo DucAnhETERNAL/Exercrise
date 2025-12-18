@@ -9,10 +9,10 @@ export enum CefrLevel {
 
 export enum ExerciseType {
   GRAMMAR = 'Grammar',
-  VOCABULARY = 'Vocabulary',
+  VOCABULARY = 'Vocabulary & Image Matching',
   READING = 'Reading Comprehension',
   LISTENING = 'Listening Comprehension',
-  IMAGE_MATCHING = 'Image Matching',
+  SPEAKING = 'Speaking & Pronunciation',
 }
 
 export interface UserPreferences {
@@ -25,10 +25,15 @@ export interface UserPreferences {
 
 export interface Question {
   questionText: string;
-  questionImage?: string; // Image for specific question (Image Matching)
+  questionImage?: string; // Image for specific question (Vocabulary with images, Listening with images)
+  imageDescription?: string; // Description of the image for Listening exercises (will be read aloud)
+  audioData?: string; // Base64 encoded audio for Listening exercises (pre-generated)
   options: string[]; // For Multiple Choice
   correctAnswer: string;
   explanation: string;
+  // For Speaking exercises
+  targetPhrase?: string; // The phrase/sentence to pronounce
+  pronunciationTips?: string; // Tips for pronunciation
 }
 
 export interface GeneratedSection {

@@ -49,6 +49,8 @@ const App: React.FC = () => {
 
   // Modal State for Student Submission
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmModalData, setConfirmModalData] = useState<{ answered: number; total: number } | null>(null);
 
   // Initialize Drive API on mount
   useEffect(() => {
@@ -177,10 +179,14 @@ const App: React.FC = () => {
     }
   };
 
+  const [linkCopied, setLinkCopied] = useState(false);
+
   const handleCopyLink = (link: string) => {
     if (link) {
       navigator.clipboard.writeText(link);
-      alert("Đã sao chép link!");
+      // Show subtle notification instead of alert
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
     }
   };
 
@@ -193,6 +199,35 @@ const App: React.FC = () => {
   const handleSubmit = () => {
     if (!content) return;
 
+    // Count answered questions
+    let answeredCount = 0;
+    let totalCount = 0;
+
+    content.sections.forEach((section, sIdx) => {
+      section.questions.forEach((q, qIdx) => {
+        totalCount++;
+        const key = `${sIdx}-${qIdx}`;
+        if (userAnswers[key]) {
+          answeredCount++;
+        }
+      });
+    });
+
+    // Show confirmation modal for students
+    if (isStudentMode) {
+      setConfirmModalData({ answered: answeredCount, total: totalCount });
+      setShowConfirmModal(true);
+      return;
+    }
+
+    // For non-student mode, submit directly
+    confirmSubmit();
+  };
+
+  const confirmSubmit = () => {
+    if (!content) return;
+
+    // Calculate score
     let correctCount = 0;
     let totalCount = 0;
 
@@ -210,6 +245,9 @@ const App: React.FC = () => {
     setIsSubmitted(true);
     // Students see answers after submitting
     setShowAnswers(true); 
+    
+    // Close confirm modal
+    setShowConfirmModal(false);
     
     // Show feedback modal immediately for students
     if (isStudentMode) {
@@ -230,7 +268,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 font-inter">
+    <div className={`min-h-screen bg-slate-50 font-inter ${isStudentMode ? 'pb-32' : 'pb-20'}`}>
       {/* Header */}
       <header className={`border-b border-slate-200 sticky top-0 z-30 shadow-sm print:hidden transition-colors ${isReviewMode ? 'bg-amber-50' : 'bg-white'}`}>
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -356,6 +394,109 @@ const App: React.FC = () => {
               </div>
             )}
 
+            {/* CONFIRMATION MODAL - Before Submit */}
+            {showConfirmModal && confirmModalData && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-slide-up">
+                  <div className={`px-6 py-4 flex items-center justify-between ${
+                    confirmModalData.answered < confirmModalData.total 
+                    ? 'bg-amber-500' 
+                    : 'bg-green-600'
+                  }`}>
+                    <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                      {confirmModalData.answered < confirmModalData.total ? (
+                        <>⚠️ Kiểm tra lại bài làm</>
+                      ) : (
+                        <>Bạn có chắc chắn muốn nộp bài không?</>
+                      )}
+                    </h3>
+                    <button 
+                      onClick={() => setShowConfirmModal(false)} 
+                      className="text-white/80 hover:text-white transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  
+                  <div className="p-6 space-y-4">
+                    {/* Progress Stats */}
+                    <div className="bg-slate-50 rounded-xl p-4 border-2 border-slate-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-slate-600 font-medium">Số câu đã làm:</span>
+                        <span className="text-2xl font-bold text-slate-900">
+                          {confirmModalData.answered} / {confirmModalData.total}
+                        </span>
+                      </div>
+                      
+                      {/* Progress Bar */}
+                      <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            confirmModalData.answered < confirmModalData.total 
+                            ? 'bg-amber-500' 
+                            : 'bg-green-600'
+                          }`}
+                          style={{ width: `${(confirmModalData.answered / confirmModalData.total) * 100}%` }}
+                        ></div>
+                      </div>
+                      
+                      {confirmModalData.answered < confirmModalData.total && (
+                        <p className="text-amber-600 text-sm font-medium mt-3 flex items-center gap-1">
+                          <span>⚠️</span>
+                          Còn {confirmModalData.total - confirmModalData.answered} câu chưa trả lời
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Message */}
+                    <div className={`p-4 rounded-xl ${
+                      confirmModalData.answered < confirmModalData.total 
+                      ? 'bg-amber-50 border border-amber-200' 
+                      : 'bg-green-50 border border-green-200'
+                    }`}>
+                      <p className={`text-sm ${
+                        confirmModalData.answered < confirmModalData.total 
+                        ? 'text-amber-900' 
+                        : 'text-green-900'
+                      }`}>
+                        {confirmModalData.answered < confirmModalData.total ? (
+                          <>
+                            <strong>Lưu ý:</strong> Bạn vẫn có thể nộp bài ngay, nhưng các câu chưa làm sẽ được tính là sai. 
+                            Hãy kiểm tra lại trước khi nộp nhé!
+                          </>
+                        ) : (
+                          <>
+                            <strong>Tuyệt vời!</strong> Bạn đã hoàn thành tất cả các câu hỏi. 
+                            Bấm "Nộp Bài" để xem kết quả!
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                    <button 
+                      onClick={() => setShowConfirmModal(false)}
+                      className="px-6 py-3 text-slate-700 font-semibold hover:bg-slate-200 rounded-xl transition-all"
+                    >
+                      {confirmModalData.answered < confirmModalData.total ? 'Làm tiếp' : 'Hủy'}
+                    </button>
+                    <button 
+                      onClick={confirmSubmit}
+                      className={`px-6 py-3 text-white font-bold rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center gap-2 ${
+                        confirmModalData.answered < confirmModalData.total 
+                        ? 'bg-amber-600 hover:bg-amber-700' 
+                        : 'bg-green-600 hover:bg-green-700'
+                      }`}
+                    >
+                      <CheckCircle className="w-5 h-5" />
+                      Nộp Bài
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* STUDENT SUBMIT MODAL */}
             {showSaveModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
@@ -443,7 +584,8 @@ const App: React.FC = () => {
             {content && (
               <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6 flex flex-wrap items-center justify-between gap-4 print:hidden">
                 <div className="flex gap-2">
-                  {!isSubmitted && (
+                  {/* Hide submit button in student mode (use sticky bar instead) */}
+                  {!isSubmitted && !isStudentMode && (
                     <button 
                       onClick={handleSubmit}
                       className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 shadow-md transition-all hover:-translate-y-0.5"
@@ -454,7 +596,7 @@ const App: React.FC = () => {
                   )}
                   {isSubmitted && isStudentMode && !formSubmitted && !isReviewMode && (
                      <span className="text-sm text-slate-500 italic flex items-center gap-1">
-                        <Save className="w-4 h-4" /> Hãy bấm "Nộp Kết Quả" ở bảng điểm.
+                        <Save className="w-4 h-4" /> Hãy bấm "Nộp Kết Quả" ở thanh dưới cùng.
                      </span>
                   )}
                   {formSubmitted && (
@@ -511,7 +653,7 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-2 mb-2 text-blue-800 font-semibold">
                    <Share2 className="w-4 h-4" /> Link bài tập (Đã nhúng Form nộp bài)
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 relative">
                    <input 
                       type="text" 
                       readOnly 
@@ -520,9 +662,21 @@ const App: React.FC = () => {
                    />
                    <button 
                       onClick={() => handleCopyLink(shareLink)}
-                      className="bg-blue-100 hover:bg-blue-200 text-blue-800 px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap"
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap ${
+                        linkCopied 
+                        ? 'bg-green-100 text-green-800 border-2 border-green-500' 
+                        : 'bg-blue-100 hover:bg-blue-200 text-blue-800'
+                      }`}
                    >
-                     Copy Link
+                     {linkCopied ? (
+                       <span className="flex items-center gap-1">
+                         <CheckCircle className="w-4 h-4" /> Đã copy!
+                       </span>
+                     ) : (
+                       <span className="flex items-center gap-1">
+                         <Copy className="w-4 h-4" /> Copy Link
+                       </span>
+                     )}
                    </button>
                 </div>
                 <div className="flex gap-2 mt-3 items-start">
@@ -563,6 +717,69 @@ const App: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* STICKY SUBMIT BAR - Student Mode Only (Floating at bottom) */}
+      {isStudentMode && content && !isSubmitted && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-indigo-500 shadow-2xl z-40 print:hidden animate-slide-up">
+          <div className="max-w-5xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <p className="text-slate-800 font-semibold text-lg">
+                  📝 Đã hoàn thành bài làm?
+                </p>
+                <p className="text-slate-500 text-sm">
+                  Bấm nút bên phải để nộp bài và xem kết quả
+                </p>
+              </div>
+              <button 
+                onClick={handleSubmit}
+                className="flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-xl hover:from-green-700 hover:to-emerald-700 shadow-lg transition-all hover:scale-105 active:scale-95 hover:shadow-xl"
+              >
+                <CheckCircle className="w-6 h-6" />
+                <span className="text-lg">Nộp Bài</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* STICKY RESULT BAR - After submission (show feedback prompt) */}
+      {isStudentMode && isSubmitted && !formSubmitted && (
+        <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-indigo-600 to-purple-600 shadow-2xl z-40 print:hidden animate-slide-up">
+          <div className="max-w-5xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between gap-4 text-white">
+              <div className="flex-1">
+                <p className="font-bold text-lg flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-yellow-300" />
+                  Điểm: {scoreData?.correct} / {scoreData?.total}
+                </p>
+                <p className="text-indigo-100 text-sm">
+                  Đừng quên nộp kết quả cho giáo viên nhé!
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowSaveModal(true)}
+                className="flex items-center gap-2 px-8 py-4 bg-white text-indigo-700 font-bold rounded-xl hover:bg-indigo-50 shadow-lg transition-all hover:scale-105 active:scale-95"
+              >
+                <Save className="w-6 h-6" />
+                <span className="text-lg">Nộp Kết Quả</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success message after form submission */}
+      {formSubmitted && (
+        <div className="fixed bottom-0 left-0 right-0 bg-green-600 shadow-2xl z-40 print:hidden animate-slide-up">
+          <div className="max-w-5xl mx-auto px-4 py-3">
+            <p className="text-white font-bold text-center flex items-center justify-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              ✅ Đã nộp bài thành công! Giáo viên đã nhận được kết quả.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

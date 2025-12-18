@@ -306,6 +306,32 @@ export const generateImage = async (promptText: string): Promise<string | undefi
 };
 
 /**
+ * Helper function to randomly select vocabulary words from a comma-separated list
+ */
+const selectRandomVocabulary = (vocabularyList: string, count: number = 15): string => {
+  if (!vocabularyList || vocabularyList.trim() === "") {
+    return "Mixed vocabulary";
+  }
+  
+  // Split by comma and clean up whitespace
+  const words = vocabularyList.split(',').map(w => w.trim()).filter(w => w.length > 0);
+  
+  // If we have fewer words than requested, return all
+  if (words.length <= count) {
+    return words.join(', ');
+  }
+  
+  // Randomly select 'count' words using Fisher-Yates shuffle
+  const shuffled = [...words];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  
+  return shuffled.slice(0, count).join(', ');
+};
+
+/**
  * Generates the text-based exercises using a structured JSON schema.
  */
 export const generateExercises = async (
@@ -316,22 +342,47 @@ export const generateExercises = async (
 
   if (onStatusUpdate) onStatusUpdate('generating_content');
 
+  // Randomly select vocabulary words for variety
+  const selectedVocabulary = selectRandomVocabulary(prefs.vocabulary || "", 15);
+
   const prompt = `
     Create a set of English exercises for daily assessment.
     
     Context & Requirements:
     - Topic/Theme: ${prefs.topic || "General"}
-    - Target Vocabulary: ${prefs.vocabulary || "Mixed vocabulary"}
+    - Target Vocabulary: ${selectedVocabulary}
     - Target Grammar: ${prefs.grammarFocus || "Mixed grammar"}
     - Question Count per Section: ${prefs.questionCount}
     - Required Section Types: ${prefs.selectedTypes.join(", ")}
-
-    For 'Listening' sections, create a script (dialogue or monologue) in the 'contextText' field.
-    For 'Reading' sections, create a passage in the 'contextText' field.
-    For 'Image Matching' sections:
+    
+    IMPORTANT: Create EXACTLY ONE section for EACH selected exercise type.
+    For example, if "Speaking & Pronunciation" is selected, create only 1 Speaking section with ${prefs.questionCount} questions.
+    
+    For 'Listening Comprehension' sections (TOEIC Part 1 style):
+      - Each question should have an image showing a simple, clear scene (people, objects, actions).
+      - The 'correctAnswer' must be a concrete visual scene that can be drawn (e.g., "A man riding a bicycle", "People sitting in a meeting room").
+      - In 'imageDescription', provide a SHORT and CONCISE description (1-2 sentences max, suitable for homework) of the image scene that will be read aloud to students. Keep it simple and clear.
+      - The 'questionText' should be simple like "What do you see in this picture?" or "Listen and choose the correct description".
+      - Provide 4 SHORT options (each 3-7 words) describing different scenarios. Only one matches the image.
+      - Keep options concise for easy listening comprehension in homework setting.
+      - The image will be auto-generated based on the correctAnswer.
+      - DO NOT include 'contextText' for Listening sections (each question is independent).
+    
+    For 'Reading Comprehension' sections, create a passage in the 'contextText' field.
+    
+    For 'Vocabulary & Image Matching' sections:
       - The 'correctAnswer' must be a concrete noun, object, or action that can be easily visualized.
-      - The 'questionText' should be generic like "Choose the word that matches the image" or "What is this?".
+      - The 'questionText' should be like "Choose the word that matches the image" or "What does this picture show?".
       - Provide 3 distractors in 'options'.
+      - The image will be auto-generated based on the correctAnswer.
+    
+    For 'Speaking & Pronunciation' sections:
+      - Create natural sentences or phrases for students to practice pronunciation.
+      - In 'targetPhrase', put the exact phrase they need to say.
+      - In 'pronunciationTips', give guidance on difficult sounds or intonation.
+      - In 'correctAnswer', repeat the targetPhrase.
+      - In 'questionText', write instructions like "Read this sentence aloud" or "Pronounce this phrase".
+      - Set 'options' to an empty array [] since it's not multiple choice.
     
     Ensure the English is natural and appropriate for daily practice.
     Return the response as a valid JSON object matching the schema.
@@ -355,7 +406,7 @@ export const generateExercises = async (
                 ExerciseType.VOCABULARY, 
                 ExerciseType.READING, 
                 ExerciseType.LISTENING,
-                ExerciseType.IMAGE_MATCHING
+                ExerciseType.SPEAKING
               ] 
             },
             title: { type: Type.STRING },
@@ -367,15 +418,18 @@ export const generateExercises = async (
                 type: Type.OBJECT,
                 properties: {
                   questionText: { type: Type.STRING },
+                  imageDescription: { type: Type.STRING, description: "For listening exercises: description of the image that will be read aloud" },
                   options: { 
                     type: Type.ARRAY, 
                     items: { type: Type.STRING },
-                    description: "Array of 4 options for multiple choice" 
+                    description: "Array of 4 options for multiple choice (empty for speaking)" 
                   },
                   correctAnswer: { type: Type.STRING },
-                  explanation: { type: Type.STRING, description: "Short explanation of why this answer is correct" }
+                  explanation: { type: Type.STRING, description: "Short explanation of why this answer is correct" },
+                  targetPhrase: { type: Type.STRING, description: "For speaking exercises: the phrase to pronounce" },
+                  pronunciationTips: { type: Type.STRING, description: "For speaking exercises: pronunciation guidance" }
                 },
-                required: ["questionText", "options", "correctAnswer"]
+                required: ["questionText", "correctAnswer"]
               }
             }
           },
@@ -417,12 +471,29 @@ export const generateExercises = async (
         content = { sections: [] };
     }
 
-    // 2. Post-process: Generate Images for Image Matching sections
+    // 2. Post-process: Generate Images for Vocabulary and Listening sections
     // We do this by creating a list of promises to run in parallel
     const imageGenerationPromises: Promise<void>[] = [];
 
     content.sections.forEach(section => {
-      if (section.type === ExerciseType.IMAGE_MATCHING && Array.isArray(section.questions)) {
+      if (section.type === ExerciseType.VOCABULARY && Array.isArray(section.questions)) {
+        if (onStatusUpdate && imageGenerationPromises.length === 0) {
+            onStatusUpdate('generating_images');
+        }
+        section.questions.forEach(question => {
+          // Push a promise to generate an image for this specific question
+          imageGenerationPromises.push((async () => {
+            // We use the correct answer as the prompt for the image
+            const imgData = await generateImage(question.correctAnswer);
+            if (imgData) {
+              question.questionImage = imgData;
+            }
+          })());
+        });
+      }
+      
+      // Generate images for Listening sections (TOEIC Part 1 style)
+      if (section.type === ExerciseType.LISTENING && Array.isArray(section.questions)) {
         if (onStatusUpdate && imageGenerationPromises.length === 0) {
             onStatusUpdate('generating_images');
         }
@@ -441,6 +512,38 @@ export const generateExercises = async (
 
     if (imageGenerationPromises.length > 0) {
       await Promise.all(imageGenerationPromises);
+    }
+
+    // 3. Post-process: Generate Audio for Listening sections (Cost-optimized: generate once)
+    const audioGenerationPromises: Promise<void>[] = [];
+
+    content.sections.forEach(section => {
+      if (section.type === ExerciseType.LISTENING && Array.isArray(section.questions)) {
+        section.questions.forEach(question => {
+          audioGenerationPromises.push((async () => {
+            // Build the audio text: question + options
+            let audioText = question.questionText;
+            
+            // Add options with letters (A, B, C, D)
+            if (question.options && question.options.length > 0) {
+              question.options.forEach((opt: string, i: number) => {
+                const letter = String.fromCharCode(65 + i);
+                audioText += `. Option ${letter}, ${opt}`;
+              });
+            }
+            
+            // Generate audio once and store as base64
+            const audioData = await generateAudioBase64(audioText);
+            if (audioData) {
+              question.audioData = audioData;
+            }
+          })());
+        });
+      }
+    });
+
+    if (audioGenerationPromises.length > 0) {
+      await Promise.all(audioGenerationPromises);
     }
 
     return content;
@@ -464,7 +567,47 @@ export const generateExercises = async (
 };
 
 /**
+ * Generates audio from text and returns base64 encoded audio data.
+ * This is optimized for cost - generate once and reuse.
+ */
+export const generateAudioBase64 = async (text: string): Promise<string | undefined> => {
+  const model = "gemini-2.5-flash-preview-tts";
+
+  try {
+    const response = await withRetry(
+      () => ai.models.generateContent({
+        model: model,
+        contents: [{ parts: [{ text }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Aoede' }, // Clear voice
+            },
+          },
+        },
+      }),
+      2, // Fewer retries for audio (non-critical)
+      "Audio generation"
+    );
+
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) {
+      return undefined;
+    }
+
+    // Return base64 data directly for storage
+    return base64Audio;
+
+  } catch (error) {
+    console.error("Audio generation failed:", error);
+    return undefined; // Fail silently
+  }
+};
+
+/**
  * Generates audio from text for Listening exercises.
+ * @deprecated Use generateAudioBase64 for better cost optimization
  */
 export const generateAudio = async (text: string): Promise<AudioBuffer> => {
   const model = "gemini-2.5-flash-preview-tts";
@@ -505,6 +648,126 @@ export const generateAudio = async (text: string): Promise<AudioBuffer> => {
 
   } catch (error) {
     throw error;
+  }
+};
+
+/**
+ * Evaluates pronunciation by comparing recorded audio with target phrase.
+ * Uses Gemini's multimodal capabilities to assess pronunciation quality.
+ * Returns detailed metrics similar to Azure Speech Service.
+ */
+export interface PronunciationFeedback {
+  pronunciationScore: number; // 0-100 - Overall pronunciation quality
+  accuracyScore: number; // 0-100 - Accuracy of phoneme pronunciation
+  fluencyScore: number; // 0-100 - Smoothness and naturalness of speech
+  completenessScore: number; // 0-100 - How much of the target phrase was spoken
+}
+
+export const evaluatePronunciation = async (
+  audioBlob: Blob,
+  targetPhrase: string
+): Promise<PronunciationFeedback> => {
+  const model = "gemini-2.5-flash";
+
+  try {
+    // Convert blob to base64
+    const base64Audio = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        // Extract base64 data (remove data:audio/webm;base64, prefix)
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(audioBlob);
+    });
+
+    const prompt = `
+      You are a pronunciation assessment system similar to Azure Speech Service.
+      Evaluate this audio recording where the student was asked to say: "${targetPhrase}"
+      
+      Provide detailed metrics (0-100 scale for each):
+      
+      1. **Accuracy Score**: How accurately were the individual phonemes/sounds pronounced?
+         - 90-100: Native-like accuracy
+         - 70-89: Good accuracy with minor errors
+         - 50-69: Noticeable pronunciation errors
+         - Below 50: Significant pronunciation issues
+      
+      2. **Fluency Score**: How smooth, natural, and confident was the delivery?
+         - Considers: pace, rhythm, hesitations, false starts
+         - 90-100: Very smooth and natural
+         - 70-89: Generally fluent with minor pauses
+         - 50-69: Some hesitations or unnatural pace
+         - Below 50: Choppy or very hesitant
+      
+      3. **Completeness Score**: How much of the target phrase was actually spoken?
+         - 100: All words spoken
+         - 70-99: Most words spoken
+         - 50-69: Half or more spoken
+         - Below 50: Less than half spoken
+      
+      4. **Pronunciation Score**: Overall weighted score combining the above metrics.
+         - Formula: (Accuracy * 0.5 + Fluency * 0.3 + Completeness * 0.2)
+      
+      Be objective and precise in your assessment, similar to Azure Speech Service.
+    `;
+
+    const schema = {
+      type: Type.OBJECT,
+      properties: {
+        pronunciationScore: { 
+          type: Type.NUMBER, 
+          description: "Overall pronunciation quality score (0-100)" 
+        },
+        accuracyScore: { 
+          type: Type.NUMBER, 
+          description: "Accuracy of phoneme pronunciation (0-100)" 
+        },
+        fluencyScore: { 
+          type: Type.NUMBER, 
+          description: "Smoothness and naturalness of speech (0-100)" 
+        },
+        completenessScore: { 
+          type: Type.NUMBER, 
+          description: "How much of target phrase was spoken (0-100)" 
+        }
+      },
+      required: ["pronunciationScore", "accuracyScore", "fluencyScore", "completenessScore"]
+    };
+
+    const response = await withRetry(
+      () => ai.models.generateContent({
+        model: model,
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                data: base64Audio,
+                mimeType: audioBlob.type || 'audio/webm'
+              }
+            },
+            { text: prompt }
+          ]
+        },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+        },
+      }),
+      3,
+      "Pronunciation evaluation"
+    );
+
+    const text = response.text;
+    if (!text) throw new Error("No evaluation generated");
+
+    return JSON.parse(text) as PronunciationFeedback;
+
+  } catch (error: any) {
+    const errorMessage = error?.message || error?.error?.message || "Unknown error";
+    throw new Error(`Failed to evaluate pronunciation: ${errorMessage}`);
   }
 };
 
