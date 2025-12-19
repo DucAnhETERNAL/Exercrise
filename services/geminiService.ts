@@ -603,7 +603,7 @@ export const generateExercises = async (
  * This is optimized for cost - generate once and reuse.
  */
 export const generateAudioBase64 = async (text: string): Promise<string | undefined> => {
-  const model = "gemini-2.0-flash-exp"; // Model hỗ trợ TTS tốt nhất hiện nay
+  const model = "gemini-2.5-flash-preview-tts";
 
   try {
     const response = await withRetry(
@@ -642,7 +642,7 @@ export const generateAudioBase64 = async (text: string): Promise<string | undefi
  * @deprecated Use generateAudioBase64 for better cost optimization
  */
 export const generateAudio = async (text: string): Promise<AudioBuffer> => {
-  const model = "gemini-2.0-flash-exp";
+  const model = "gemini-2.5-flash-preview-tts";
 
   try {
     const response = await withRetry(
