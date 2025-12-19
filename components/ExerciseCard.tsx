@@ -150,7 +150,19 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
   showAnswer,
   isSubmitted 
 }) => {
-  const isCorrect = userSelected === question.correctAnswer;
+  const normalizeAnswer = (s: string | undefined): string => {
+    if (!s) return '';
+    // Normalize for comparisons: trim, lowercase, collapse whitespace, remove trailing punctuation
+    return s
+      .trim()
+      .replace(/\s+/g, ' ')
+      .replace(/[.?!,;:]+$/g, '')
+      .toLowerCase();
+  };
+
+  const normalizedUser = normalizeAnswer(userSelected);
+  const normalizedCorrect = normalizeAnswer(question?.correctAnswer);
+  const isCorrect = normalizedUser !== '' && normalizedUser === normalizedCorrect;
   const isAnswered = userSelected !== undefined && userSelected !== '';
   const isListening = sectionType === ExerciseType.LISTENING;
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -331,7 +343,7 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {question.options && question.options.length > 0 && question.options.map((opt: string, i: number) => {
               const isSelected = userSelected === opt;
-              const isTheCorrectAnswer = opt === question.correctAnswer;
+              const isTheCorrectAnswer = normalizeAnswer(opt) === normalizedCorrect;
               
               let buttonClass = "bg-white border-slate-200 hover:bg-slate-50";
 

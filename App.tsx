@@ -263,6 +263,24 @@ const App: React.FC = () => {
     let correctCount = 0;
     let totalCount = 0;
 
+    const normalizeAnswer = (s: string | undefined): string => {
+      if (!s) return '';
+      return s
+        .trim()
+        .replace(/\s+/g, ' ')
+        .replace(/[.?!,;:]+$/g, '')
+        .toLowerCase();
+    };
+
+    const areEquivalent = (user: string | undefined, correct: string | undefined): boolean => {
+      const u = normalizeAnswer(user);
+      const c = normalizeAnswer(correct);
+      if (!u || !c) return false;
+      if (u === c) return true;
+      // handle cases like "an artist" vs "an artist on a court"
+      return c.startsWith(u) || u.startsWith(c);
+    };
+
     content.sections.forEach((section, sIdx) => {
       section.questions.forEach((q, qIdx) => {
         totalCount++;
@@ -280,14 +298,7 @@ const App: React.FC = () => {
           }
         } else {
           // Standard check for Multiple Choice / Text
-          // Normalize both answers: trim whitespace and compare case-insensitively
-          const normalizedUserAnswer = userAnswer?.trim().toLowerCase() || '';
-          const normalizedCorrectAnswer = q.correctAnswer?.trim().toLowerCase() || '';
-          
-          // Also check if user answer matches any part of correct answer (for partial matches)
-          if (normalizedUserAnswer === normalizedCorrectAnswer || 
-              normalizedCorrectAnswer.includes(normalizedUserAnswer) ||
-              normalizedUserAnswer.includes(normalizedCorrectAnswer)) {
+          if (areEquivalent(userAnswer, q.correctAnswer)) {
             correctCount++;
           }
         }
