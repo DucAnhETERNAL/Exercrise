@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CefrLevel, ExerciseType, GeneratedContent, UserPreferences, StudentSubmission, GoogleFormConfig, LoadingStatus } from './types';
 import InputForm from './components/InputForm';
 import ExerciseCard from './components/ExerciseCard';
+import PaginatedExerciseView from './components/PaginatedExerciseView';
 import { generateExercises } from './services/geminiService';
 import { uploadToDrive, loadFromDrive, initDriveApi } from './services/driveService';
 import { submitToGoogleForm } from './services/formService';
@@ -155,7 +156,7 @@ const App: React.FC = () => {
     }
   };
 
-  // Student submits to Google Form
+  // Student submits to Google Form and saves answers to Drive
   const handleSubmitToForm = async () => {
     if (!scoreData || !studentName.trim()) {
       alert("Vui lòng nhập tên của bạn.");
@@ -175,15 +176,27 @@ const App: React.FC = () => {
         studentName: studentName.trim(),
         originalFileId: currentFileId,
         score: scoreData,
-        feedback: studentFeedback, 
+        feedback: studentFeedback,
+        userAnswers: userAnswers, // Include detailed answers
         timestamp: Date.now()
       };
 
+      // Submit to Google Form first
       await submitToGoogleForm(submissionData, formConfig);
+      
+      // Also save detailed submission to Drive
+      try {
+        const fileName = `RESULT_${studentName.trim()}_${Date.now()}.json`;
+        await uploadToDrive(submissionData, fileName);
+      } catch (driveError: any) {
+        // Log error but don't fail the submission
+        console.error("Failed to save to Drive:", driveError);
+        // Still show success message since Google Form submission succeeded
+      }
       
       setFormSubmitted(true);
       setShowSaveModal(false); 
-      alert("Nộp bài thành công! Giáo viên đã nhận được kết quả.");
+      alert("Nộp bài thành công! Giáo viên đã nhận được kết quả và đáp án chi tiết.");
     } catch (e: any) {
       alert("Lỗi khi nộp bài: " + (e.message || "Unknown error"));
     } finally {
@@ -712,17 +725,29 @@ const App: React.FC = () => {
                   </p>
                 </div>
 
-                {content.sections.map((section, sIdx) => (
-                  <ExerciseCard 
-                    key={`${section.id}-${sIdx}`} 
-                    section={section} 
-                    sectionIndex={sIdx}
+                {/* Use paginated view for students, regular view for teachers */}
+                {isStudentMode && !isSubmitted ? (
+                  <PaginatedExerciseView
+                    content={content}
                     userAnswers={userAnswers}
                     onAnswerSelect={handleAnswerSelect}
-                    isSubmitted={isSubmitted} // Lock inputs if submitted
-                    showAnswersGlobal={showAnswers} 
+                    isSubmitted={isSubmitted}
+                    showAnswersGlobal={showAnswers}
+                    questionsPerPage={1}
                   />
-                ))}
+                ) : (
+                  content.sections.map((section, sIdx) => (
+                    <ExerciseCard 
+                      key={`${section.id}-${sIdx}`} 
+                      section={section} 
+                      sectionIndex={sIdx}
+                      userAnswers={userAnswers}
+                      onAnswerSelect={handleAnswerSelect}
+                      isSubmitted={isSubmitted}
+                      showAnswersGlobal={showAnswers} 
+                    />
+                  ))
+                )}
               </div>
             )}
 

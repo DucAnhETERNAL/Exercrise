@@ -547,7 +547,7 @@ export const generateExercises = async (
           if (question.options && question.options.length > 0) {
             question.options.forEach((opt: string, i: number) => {
               const letter = String.fromCharCode(65 + i);
-              audioText += `. ${letter}, ${opt}`;
+              audioText += `.  ${letter}, ${opt}`;
             });
           }
           
@@ -685,11 +685,18 @@ export const generateAudio = async (text: string): Promise<AudioBuffer> => {
  * Uses Gemini's multimodal capabilities to assess pronunciation quality.
  * Returns detailed metrics similar to Azure Speech Service.
  */
+export interface WordFeedback {
+  word: string;
+  status: 'correct' | 'partial' | 'incorrect'; // correct = green, partial = yellow, incorrect = red
+  score?: number; // 0-100 for this word
+}
+
 export interface PronunciationFeedback {
   pronunciationScore: number; // 0-100 - Overall pronunciation quality
   accuracyScore: number; // 0-100 - Accuracy of phoneme pronunciation
   fluencyScore: number; // 0-100 - Smoothness and naturalness of speech
   completenessScore: number; // 0-100 - How much of the target phrase was spoken
+  wordFeedback: WordFeedback[]; // Word-by-word analysis
 }
 
 export const evaluatePronunciation = async (
@@ -713,7 +720,7 @@ export const evaluatePronunciation = async (
     });
 
     const prompt = `
-      You are a pronunciation assessment system similar to Azure Speech Service.
+      You are a pronunciation assessment system similar to Duolingo.
       Evaluate this audio recording where the student was asked to say: "${targetPhrase}"
       
       Provide detailed metrics (0-100 scale for each):
@@ -740,7 +747,15 @@ export const evaluatePronunciation = async (
       4. **Pronunciation Score**: Overall weighted score combining the above metrics.
          - Formula: (Accuracy * 0.5 + Fluency * 0.3 + Completeness * 0.2)
       
-      Be objective and precise in your assessment, similar to Azure Speech Service.
+      5. **Word-by-Word Analysis**: Analyze each word in "${targetPhrase}" separately.
+         - For each word, provide:
+           - word: the exact word from the target phrase
+           - status: "correct" (pronounced perfectly, score 80-100), "partial" (pronounced acceptably but with minor issues, score 50-79), or "incorrect" (pronounced incorrectly or missing, score 0-49)
+           - score: 0-100 for this specific word's pronunciation quality
+         - Split the target phrase into individual words and evaluate each one.
+         - Be precise: if a word was pronounced correctly, mark it as "correct". If it has minor issues but is understandable, mark as "partial". If it's wrong or missing, mark as "incorrect".
+      
+      Be objective and precise in your assessment, similar to Duolingo's word-by-word feedback.
     `;
 
     const schema = {
@@ -761,9 +776,29 @@ export const evaluatePronunciation = async (
         completenessScore: { 
           type: Type.NUMBER, 
           description: "How much of target phrase was spoken (0-100)" 
+        },
+        wordFeedback: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              word: { type: Type.STRING, description: "The word from the target phrase" },
+              status: { 
+                type: Type.STRING, 
+                enum: ["correct", "partial", "incorrect"],
+                description: "correct = perfect (80-100), partial = acceptable with minor issues (50-79), incorrect = wrong or missing (0-49)"
+              },
+              score: { 
+                type: Type.NUMBER, 
+                description: "Pronunciation score for this specific word (0-100)" 
+              }
+            },
+            required: ["word", "status"]
+          },
+          description: "Word-by-word analysis of pronunciation"
         }
       },
-      required: ["pronunciationScore", "accuracyScore", "fluencyScore", "completenessScore"]
+      required: ["pronunciationScore", "accuracyScore", "fluencyScore", "completenessScore", "wordFeedback"]
     };
 
     const response = await withRetry(

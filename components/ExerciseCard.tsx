@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { GeneratedSection, ExerciseType } from '../types';
 import { Volume2, CheckCircle2, XCircle, BookOpen, Brain, Mic, Image as ImageIcon, Mic2 } from 'lucide-react';
 import { evaluatePronunciation, PronunciationFeedback } from '../services/geminiService';
@@ -148,8 +148,45 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
   isSubmitted 
 }) => {
   const isCorrect = userSelected === question.correctAnswer;
+  const isAnswered = userSelected !== undefined && userSelected !== '';
   const isListening = sectionType === ExerciseType.LISTENING;
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const wasPlayingRef = useRef<boolean>(false);
+  const shouldResumeRef = useRef<boolean>(false);
+
+  // Track audio playing state for listening exercises
+  useEffect(() => {
+    if (!isListening || !audioRef.current) return;
+
+    const audio = audioRef.current;
+
+    const handlePlay = () => {
+      wasPlayingRef.current = true;
+      shouldResumeRef.current = false;
+    };
+
+    const handlePause = () => {
+      // Only track pause if we didn't intentionally pause it
+      if (shouldResumeRef.current && wasPlayingRef.current) {
+        // Resume if it was paused unintentionally
+        setTimeout(() => {
+          if (audio && audio.paused && shouldResumeRef.current) {
+            audio.play().catch(() => {
+              // Ignore play errors
+            });
+          }
+        }, 10);
+      }
+    };
+
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
+
+    return () => {
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
+    };
+  }, [isListening]);
 
   // Speak option text when clicked (only for non-listening exercises)
   const speakOption = (text: string) => {
@@ -229,10 +266,10 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
       <div className="flex gap-3">
         <span className={`flex-shrink-0 w-8 h-8 rounded-full text-sm font-bold flex items-center justify-center mt-0.5 transition-colors ${
            isSubmitted 
-             ? (isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')
+             ? (isCorrect ? 'bg-green-100 text-green-700' : (isAnswered ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'))
              : 'bg-slate-100 text-slate-600'
         }`}>
-          {isSubmitted ? (isCorrect ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />) : index + 1}
+          {isSubmitted ? (isCorrect ? <CheckCircle2 className="w-5 h-5" /> : (isAnswered ? <XCircle className="w-5 h-5" /> : <span className="text-yellow-700">?</span>)) : index + 1}
         </span>
         <div className="flex-grow">
           {/* Question Text */}
@@ -320,23 +357,53 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
                 <button
                   key={i}
                   onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (!isSubmitted) {
                       // For Listening: ensure audio continues playing
                       if (isListening && audioRef.current) {
                         const wasPlaying = !audioRef.current.paused;
+                        const currentTime = audioRef.current.currentTime;
+                        
+                        // Mark that we want to resume if paused
+                        if (wasPlaying) {
+                          shouldResumeRef.current = true;
+                          wasPlayingRef.current = true;
+                        }
+                        
                         // Select the answer
                         onSelect(opt);
-                        // If audio was playing, continue playing it
-                        if (wasPlaying && audioRef.current.paused) {
-                          audioRef.current.play().catch(() => {
-                            // Ignore play errors (user may have paused manually)
-                          });
-                        }
+                        
+                        // Use setTimeout to ensure audio continues after state update
+                        setTimeout(() => {
+                          if (audioRef.current && shouldResumeRef.current) {
+                            // If audio was playing, restore its state
+                            if (wasPlayingRef.current) {
+                              // Restore playback position if it changed significantly
+                              if (Math.abs(audioRef.current.currentTime - currentTime) > 0.5) {
+                                audioRef.current.currentTime = currentTime;
+                              }
+                              // Resume playback if paused
+                              if (audioRef.current.paused) {
+                                audioRef.current.play().catch(() => {
+                                  // Ignore play errors (user may have paused manually)
+                                  shouldResumeRef.current = false;
+                                });
+                              }
+                            }
+                          }
+                        }, 50);
                       } else {
                         onSelect(opt);
                         // Speak the option when clicked (only for non-listening)
                         speakOption(opt);
                       }
+                    }
+                  }}
+                  onMouseDown={(e) => {
+                    // Prevent default to avoid focus issues that might pause audio
+                    if (isListening && audioRef.current && !audioRef.current.paused) {
+                      e.preventDefault();
                     }
                   }}
                   disabled={isSubmitted || showAnswer}
@@ -352,14 +419,24 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
           </div>
 
           {/* Explanation / Result */}
-          {(showAnswer || (isSubmitted && !isCorrect)) && (
-            <div className={`mt-4 p-4 rounded-xl text-sm flex gap-3 ${isSubmitted && !isCorrect ? 'bg-red-50 text-red-900' : 'bg-blue-50 text-blue-800'}`}>
+          {(showAnswer || (isSubmitted && (!isCorrect || !isAnswered))) && (
+            <div className={`mt-4 p-4 rounded-xl text-sm flex gap-3 ${
+              isSubmitted 
+                ? (!isAnswered ? 'bg-yellow-50 text-yellow-900 border border-yellow-200' : (!isCorrect ? 'bg-red-50 text-red-900' : 'bg-green-50 text-green-900'))
+                : 'bg-blue-50 text-blue-800'
+            }`}>
                <div className="mt-0.5 flex-shrink-0">
-                 {isSubmitted && !isCorrect ? <XCircle className="w-5 h-5 text-red-600" /> : <CheckCircle2 className="w-5 h-5 text-blue-600" />}
+                 {isSubmitted 
+                   ? (!isAnswered ? <span className="text-yellow-700 text-lg">⚠</span> : (!isCorrect ? <XCircle className="w-5 h-5 text-red-600" /> : <CheckCircle2 className="w-5 h-5 text-green-600" />))
+                   : <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                 }
                </div>
                <div>
                  <span className="font-bold block mb-1">
-                    {isSubmitted && !isCorrect ? 'Incorrect. ' : ''}
+                    {isSubmitted 
+                      ? (!isAnswered ? 'Chưa trả lời. ' : (!isCorrect ? 'Incorrect. ' : ''))
+                      : ''
+                    }
                     Correct Answer: {question.correctAnswer}
                  </span>
                  {question.explanation}
@@ -397,9 +474,40 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
   
   // For sample audio using Web Speech API
   const [isPlayingSample, setIsPlayingSample] = useState(false);
+
+  // Add global event listeners for mouseup/touchend to stop recording
+  React.useEffect(() => {
+    if (isRecording) {
+      const handleStop = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          try {
+            mediaRecorderRef.current.stop();
+          } catch (error) {
+            console.error('Error stopping recording:', error);
+          }
+        }
+        setIsRecording(false);
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
+      };
+
+      window.addEventListener('mouseup', handleStop);
+      window.addEventListener('touchend', handleStop);
+      window.addEventListener('touchcancel', handleStop);
+
+      return () => {
+        window.removeEventListener('mouseup', handleStop);
+        window.removeEventListener('touchend', handleStop);
+        window.removeEventListener('touchcancel', handleStop);
+      };
+    }
+  }, [isRecording]);
 
   const startRecording = async () => {
     // Reset previous results when trying again
@@ -408,8 +516,12 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
       setRecordedBlob(null);
     }
     
+    // Prevent starting if already recording
+    if (isRecording) return;
+    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -425,7 +537,10 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
         setRecordedBlob(audioBlob);
         
         // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
         
         // Automatically evaluate after recording stops
         await evaluateRecording(audioBlob);
@@ -440,8 +555,21 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
+      try {
+        if (mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+        }
+        setIsRecording(false);
+        // Note: evaluation will happen automatically in onstop handler
+      } catch (error) {
+        console.error('Error stopping recording:', error);
+        setIsRecording(false);
+        // Stop tracks even if stop() fails
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
+      }
     }
   };
 
@@ -532,20 +660,36 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
           <div className="flex flex-col items-center gap-4 mb-6">
             {!isRecording && !isEvaluating && (
               <button
-                onClick={startRecording}
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onMouseLeave={stopRecording}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  startRecording();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  stopRecording();
+                }}
                 disabled={isSubmitted}
-                className="px-8 py-4 bg-red-500 text-white font-bold rounded-full hover:bg-red-600 shadow-lg transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-8 py-4 bg-red-500 text-white font-bold rounded-full hover:bg-red-600 shadow-lg transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 active:scale-95"
               >
-                {feedback ? 'Thử lại' : 'Bắt đầu ghi âm'}
+                <Mic2 className="w-5 h-5" />
+                {feedback ? 'Nhấn giữ để nói lại' : 'Nhấn giữ để nói'}
               </button>
             )}
 
             {isRecording && (
               <button
-                onClick={stopRecording}
-                className="px-8 py-4 bg-gray-500 text-white font-bold rounded-full hover:bg-gray-600 shadow-lg transition-all animate-pulse"
+                onMouseUp={stopRecording}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  stopRecording();
+                }}
+                className="px-8 py-4 bg-red-600 text-white font-bold rounded-full shadow-lg animate-pulse flex items-center gap-3 cursor-pointer active:scale-95"
               >
-                Đang ghi... (Bấm để dừng)
+                <Mic2 className="w-5 h-5 animate-pulse" />
+                Đang ghi âm... (Thả để nộp)
               </button>
             )}
 
@@ -557,78 +701,44 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
             )}
           </div>
 
-          {/* Pronunciation Analysis - Azure Style */}
+          {/* Pronunciation Feedback - Duolingo Style */}
           {feedback && (
             <div className="mt-4 space-y-4">
-              {/* Overall Score Header */}
+              {/* Accuracy Percentage */}
               <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
                 <div className="text-center">
-                  <div className="text-5xl font-bold mb-2">{Math.round(feedback.pronunciationScore)}</div>
-                  <div className="text-lg opacity-90">Pronunciation Score</div>
-                  <div className="mt-2 text-sm opacity-75">
-                    {feedback.pronunciationScore >= 90 && '🎉 Excellent!'}
-                    {feedback.pronunciationScore >= 70 && feedback.pronunciationScore < 90 && '👍 Good!'}
-                    {feedback.pronunciationScore >= 50 && feedback.pronunciationScore < 70 && '💪 Keep Practicing!'}
-                    {feedback.pronunciationScore < 50 && '📚 Needs Improvement'}
-                  </div>
+                  <div className="text-5xl font-bold mb-2">{Math.round(feedback.pronunciationScore)}%</div>
+                  <div className="text-lg opacity-90">Độ chính xác phát âm</div>
                 </div>
               </div>
 
-              {/* Detailed Metrics Table */}
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
-                  <h4 className="font-bold text-slate-800">
-                    Phân Tích Chi Tiết
-                  </h4>
-                </div>
-                
-                <div className="p-4 space-y-4">
-                  {/* Accuracy Score */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-semibold text-slate-700">Accuracy (Độ chính xác)</span>
-                      <span className="text-lg font-bold text-indigo-600">{Math.round(feedback.accuracyScore)}%</span>
+              {/* Word-by-Word Feedback - Duolingo Style */}
+              {feedback.wordFeedback && feedback.wordFeedback.length > 0 && (
+                <div className="bg-white rounded-xl border border-slate-200 p-6">
+                  <div className="text-center mb-4">
+                    <p className="text-sm font-semibold text-slate-600 mb-2">Bạn đã nói:</p>
+                    <div className="text-2xl font-bold leading-relaxed">
+                      {feedback.wordFeedback.map((word, idx) => {
+                        let colorClass = '';
+                        if (word.status === 'correct') {
+                          colorClass = 'text-green-600';
+                        } else if (word.status === 'partial') {
+                          colorClass = 'text-yellow-600';
+                        } else {
+                          colorClass = 'text-red-600';
+                        }
+                        
+                        return (
+                          <span key={idx} className={colorClass}>
+                            {word.word}
+                            {idx < feedback.wordFeedback.length - 1 && ' '}
+                          </span>
+                        );
+                      })}
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500"
-                        style={{ width: `${feedback.accuracyScore}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">Độ chính xác khi phát âm các âm thanh</p>
-                  </div>
-
-                  {/* Fluency Score */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-semibold text-slate-700">Fluency (Độ trôi chảy)</span>
-                      <span className="text-lg font-bold text-green-600">{Math.round(feedback.fluencyScore)}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-green-500 to-green-600 rounded-full transition-all duration-500"
-                        style={{ width: `${feedback.fluencyScore}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">Độ tự nhiên và trơn tru khi nói</p>
-                  </div>
-
-                  {/* Completeness Score */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-semibold text-slate-700">Completeness (Độ hoàn chỉnh)</span>
-                      <span className="text-lg font-bold text-purple-600">{Math.round(feedback.completenessScore)}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full transition-all duration-500"
-                        style={{ width: `${feedback.completenessScore}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">Mức độ hoàn thành câu nói</p>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Playback */}
               {recordedBlob && (

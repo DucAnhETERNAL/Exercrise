@@ -64,6 +64,7 @@ export interface StudentSubmission {
   originalFileId: string | null; // ID of the exercise file
   score: { correct: number; total: number };
   feedback?: string; // Student feedback
+  userAnswers?: Record<string, string>; // Detailed answers for each question
   timestamp: number;
 }
 
