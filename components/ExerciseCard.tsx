@@ -73,7 +73,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
       {/* Header */}
       <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-indigo-700 font-semibold">
+        <div className="flex items-center gap-2 text-antoree-green font-semibold">
           {getIcon()}
           <span>{section.type}</span>
         </div>
@@ -298,10 +298,10 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
           {/* Audio Player for Listening Questions (HTML5 with seek/scrub controls) */}
           {isListening && question.audioData && (
             <div className="mb-6 flex flex-col items-center gap-2">
-              <div className="w-full max-w-md bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-xl border border-indigo-200 shadow-sm">
+              <div className="w-full max-w-md bg-gradient-to-r from-antoree-lightGreen to-green-50 p-4 rounded-xl border border-green-200 shadow-sm">
                 <div className="flex items-center gap-3 mb-2">
-                  <Volume2 className="w-5 h-5 text-indigo-600 flex-shrink-0" />
-                  <span className="text-sm font-semibold text-indigo-900">Listening Track</span>
+                  <Volume2 className="w-5 h-5 text-antoree-green flex-shrink-0" />
+                  <span className="text-sm font-semibold text-green-900">Listening Track</span>
                 </div>
                 <audio 
                   ref={audioRef}
@@ -349,7 +349,7 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
               } else {
                 // Interactive state
                 if (isSelected) {
-                  buttonClass = "bg-indigo-50 border-indigo-500 text-indigo-900 ring-1 ring-indigo-500";
+                  buttonClass = "bg-antoree-lightGreen border-antoree-green text-antoree-green ring-1 ring-antoree-green";
                 }
               }
 
@@ -474,7 +474,6 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [feedback, setFeedback] = useState<PronunciationFeedback | null>(null);
-  const [showDetails, setShowDetails] = useState(true); // New state for toggling details
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -624,7 +623,7 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
     <div className="border-b border-slate-100 pb-6 last:border-0 last:pb-0">
       <div className="flex gap-3">
         <span className={`flex-shrink-0 w-8 h-8 rounded-full text-sm font-bold flex items-center justify-center mt-0.5 transition-colors ${
-          feedback ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'
+          feedback ? 'bg-antoree-lightGreen text-antoree-green' : 'bg-slate-100 text-slate-600'
         }`}>
           {feedback ? <CheckCircle2 className="w-5 h-5" /> : index + 1}
         </span>
@@ -633,12 +632,12 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
           <p className="font-medium text-slate-800 mb-3 text-lg leading-snug">{question.questionText}</p>
 
           {/* Target Phrase */}
-          <div className="mb-6 p-5 bg-indigo-50 rounded-xl border border-indigo-100">
-            <div className="text-2xl font-bold text-indigo-900 mb-2 text-center">
+          <div className="mb-6 p-5 bg-antoree-lightGreen rounded-xl border border-green-100">
+            <div className="text-2xl font-bold text-antoree-green mb-2 text-center">
               "{question.targetPhrase || question.correctAnswer}"
             </div>
             {question.pronunciationTips && (
-              <div className="text-sm text-indigo-700 mt-3">
+              <div className="text-sm text-antoree-darkGreen mt-3">
                 <span className="font-semibold">💡 Tips: </span>
                 {question.pronunciationTips}
               </div>
@@ -652,7 +651,7 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
                 className={`px-6 py-3 rounded-full font-semibold transition-all shadow-sm ${
                   isPlayingSample 
                   ? 'bg-green-100 text-green-700 border border-green-200' 
-                  : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md'
+                  : 'bg-antoree-green text-white hover:bg-antoree-darkGreen hover:shadow-md'
                 }`}
               >
                 {isPlayingSample ? 'Đang phát...' : 'Nghe Audio Mẫu'}
@@ -698,8 +697,8 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
             )}
 
             {isEvaluating && (
-              <div className="flex items-center gap-2 text-indigo-600 font-medium">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+              <div className="flex items-center gap-2 text-antoree-green font-medium">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-antoree-green"></div>
                 Đang đánh giá phát âm...
               </div>
             )}
@@ -707,53 +706,21 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
 
           {/* Pronunciation Feedback - Duolingo Style */}
           {feedback && (
-            <div className="mt-4 space-y-6">
-              {/* Detailed Metrics Grid */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm transition-all">
-                <h4 className="text-center font-bold text-slate-700 mb-4 text-lg">Điểm tổng</h4>
-                <div className="text-center text-5xl font-black text-green-500 mb-8">{Math.round(feedback.pronunciationScore)}</div>
-
-                {showDetails && (
-                  <div className="grid grid-cols-2 gap-4 animate-fade-in">
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
-                      <div className="text-sm text-slate-500 font-medium mb-1">Độ chính xác</div>
-                      <div className="text-2xl font-bold text-slate-800">{Math.round(feedback.accuracyScore)}</div>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
-                      <div className="text-sm text-slate-500 font-medium mb-1">Độ trôi chảy</div>
-                      <div className="text-2xl font-bold text-green-600">{Math.round(feedback.fluencyScore)}</div>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
-                      <div className="text-sm text-slate-500 font-medium mb-1">Độ hoàn thiện</div>
-                      <div className="text-2xl font-bold text-slate-800">{Math.round(feedback.completenessScore)}</div>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
-                      <div className="text-sm text-slate-500 font-medium mb-1">Phát âm</div>
-                      <div className="text-2xl font-bold text-green-600">{Math.round(feedback.pronunciationScore)}</div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-6 flex justify-center">
-                  <button 
-                    onClick={() => setShowDetails(!showDetails)}
-                    className="text-sm text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors"
-                  >
-                    {showDetails ? (
-                      <>Ẩn chi tiết <span className="text-xs">▲</span></>
-                    ) : (
-                      <>Xem chi tiết <span className="text-xs">▼</span></>
-                    )}
-                  </button>
+            <div className="mt-4 space-y-4">
+              {/* Accuracy Percentage */}
+              <div className="bg-gradient-to-r from-antoree-green to-green-600 rounded-xl p-6 text-white shadow-lg">
+                <div className="text-center">
+                  <div className="text-5xl font-bold mb-2">{Math.round(feedback.pronunciationScore)}%</div>
+                  <div className="text-lg opacity-90">Độ chính xác phát âm</div>
                 </div>
               </div>
 
               {/* Word-by-Word Feedback - Duolingo Style */}
-              {showDetails && feedback.wordFeedback && feedback.wordFeedback.length > 0 && (
-                <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm animate-fade-in">
-                  <div className="text-center mb-6">
-                    <p className="text-sm font-semibold text-slate-500 mb-3 uppercase tracking-wide">Chi tiết từng từ</p>
-                    <div className="text-2xl font-bold leading-relaxed flex flex-wrap justify-center gap-2">
+              {feedback.wordFeedback && feedback.wordFeedback.length > 0 && (
+                <div className="bg-white rounded-xl border border-slate-200 p-6">
+                  <div className="text-center mb-4">
+                    <p className="text-sm font-semibold text-slate-600 mb-2">Bạn đã nói:</p>
+                    <div className="text-2xl font-bold leading-relaxed">
                       {feedback.wordFeedback.map((word, idx) => {
                         let colorClass = '';
                         if (word.status === 'correct') {
@@ -765,33 +732,24 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
                         }
                         
                         return (
-                          <span key={idx} className={`${colorClass} transition-all hover:scale-110 cursor-default`} title={`Score: ${Math.round(word.score || 0)}`}>
+                          <span key={idx} className={colorClass}>
                             {word.word}
+                            {idx < feedback.wordFeedback.length - 1 && ' '}
                           </span>
                         );
                       })}
                     </div>
                   </div>
-
-                  <div className="flex justify-center gap-4 text-xs font-medium text-slate-500">
-                    <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-600"></span> Excellent (≥80)</div>
-                    <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-500"></span> Good (60-79)</div>
-                    <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500"></span> Needs Work (&lt;60)</div>
-                  </div>
                 </div>
               )}
 
-
               {/* Playback */}
               {recordedBlob && (
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center gap-3">
-                  <div className="bg-white p-2 rounded-full shadow-sm">
-                     <Volume2 className="w-5 h-5 text-indigo-600" />
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div className="font-bold text-slate-700 mb-2">
+                    Nghe lại bản ghi của bạn:
                   </div>
-                  <div className="flex-1">
-                      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Bản ghi của bạn</div>
-                      <audio controls className="w-full h-8" src={URL.createObjectURL(recordedBlob)} />
-                  </div>
+                  <audio controls className="w-full" src={URL.createObjectURL(recordedBlob)} />
                 </div>
               )}
             </div>

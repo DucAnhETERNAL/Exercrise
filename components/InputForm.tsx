@@ -149,17 +149,17 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
       <h2 className="text-xl font-semibold text-slate-800 mb-6 flex items-center gap-2">
-        <LayoutList className="w-5 h-5 text-indigo-600" />
+        <LayoutList className="w-5 h-5 text-antoree-green" />
         Configuration
       </h2>
 
       {/* Video Analysis Section */}
-      <div className="mb-8 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+      <div className="mb-8 p-4 bg-antoree-lightGreen rounded-xl border border-green-100">
         <div className="flex items-center gap-2 mb-2">
-          <Video className="w-5 h-5 text-indigo-600" />
-          <h3 className="font-semibold text-indigo-900">Auto-configure from Video</h3>
+          <Video className="w-5 h-5 text-antoree-green" />
+          <h3 className="font-semibold text-antoree-green">Auto-configure from Video</h3>
         </div>
-        <p className="text-sm text-indigo-700 mb-4">
+        <p className="text-sm text-antoree-darkGreen mb-4">
           Upload a video to automatically detect Level, Topic, Vocabulary, and Grammar. 
           (Large videos will be sampled).
         </p>
@@ -175,7 +175,7 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={analyzingVideo || isLoading}
-          className="w-full py-3 bg-white border-2 border-indigo-200 text-indigo-700 rounded-lg font-semibold hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2"
+          className="w-full py-3 bg-white border-2 border-green-200 text-antoree-green rounded-lg font-semibold hover:bg-antoree-lightGreen transition-colors flex items-center justify-center gap-2"
         >
           {analyzingVideo ? (
              <Loader2 className="w-5 h-5 animate-spin" />
@@ -198,7 +198,7 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
                 onClick={() => handleChange('level', level)}
                 className={`px-5 py-3 rounded-full text-sm font-medium transition-colors shadow-sm ${
                   preferences.level === level
-                    ? 'bg-indigo-600 text-white border-indigo-600 border'
+                    ? 'bg-antoree-green text-white border-antoree-green border'
                     : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50'
                 }`}
               >
@@ -219,7 +219,7 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
             <input
               type="text"
               placeholder="e.g. Travel, Business, Technology"
-              className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-black text-lg shadow-sm"
+              className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-antoree-green outline-none bg-white text-black text-lg shadow-sm"
               value={preferences.topic}
               onChange={(e) => handleChange('topic', e.target.value)}
             />
@@ -231,7 +231,7 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
           <div>
             <label className="block text-base font-semibold text-slate-700 mb-2">Vocabulary List (Optional)</label>
             <textarea
-              className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-base bg-white text-black shadow-sm"
+              className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-antoree-green outline-none text-base bg-white text-black shadow-sm"
               rows={3}
               placeholder="e.g. ubiquitous, ephemeral, serene..."
               value={preferences.vocabulary}
@@ -241,7 +241,7 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
           <div>
             <label className="block text-base font-semibold text-slate-700 mb-2">Grammar Focus (Optional)</label>
             <textarea
-              className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-base bg-white text-black shadow-sm"
+              className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-antoree-green outline-none text-base bg-white text-black shadow-sm"
               rows={3}
               placeholder="e.g. Present Perfect, Conditionals..."
               value={preferences.grammarFocus}
@@ -260,7 +260,7 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
                 onClick={() => toggleType(type)}
                 className={`px-5 py-3 rounded-full text-sm font-medium transition-colors shadow-sm ${
                   preferences.selectedTypes.includes(type)
-                    ? 'bg-indigo-600 text-white border-indigo-600 border'
+                    ? 'bg-antoree-green text-white border-antoree-green border'
                     : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50'
                 }`}
               >
@@ -292,7 +292,7 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
                     setQuestionCountInput(preferences.questionCount.toString());
                   }
                 }}
-                className={`w-full pl-12 pr-16 py-3.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-black text-lg shadow-sm ${
+                className={`w-full pl-12 pr-16 py-3.5 border rounded-xl focus:ring-2 focus:ring-antoree-green outline-none bg-white text-black text-lg shadow-sm ${
                   questionCountError ? 'border-red-300 focus:ring-red-500' : 'border-slate-200'
                 }`}
                 placeholder="Nhập số câu hỏi"
@@ -330,7 +330,7 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
           className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg transition-all transform hover:-translate-y-0.5 ${
             isLoading || preferences.selectedTypes.length === 0 || !!questionCountError
               ? 'bg-slate-300 cursor-not-allowed'
-              : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-xl'
+              : 'bg-antoree-green hover:bg-antoree-darkGreen hover:shadow-xl'
           }`}
         >
           {isLoading ? (

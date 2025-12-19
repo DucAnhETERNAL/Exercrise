@@ -319,16 +319,16 @@ const App: React.FC = () => {
       <header className={`border-b border-slate-200 sticky top-0 z-30 shadow-sm print:hidden transition-colors ${isReviewMode ? 'bg-amber-50' : 'bg-white'}`}>
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => (isStudentMode || isReviewMode) && handleResetToTeacherMode()}>
-            <div className="bg-indigo-600 p-1.5 rounded-lg">
+            <div className="bg-[#00C853] p-1.5 rounded-lg">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
+            <h1 className="text-xl font-bold text-[#00C853]">
               GenEnglish
             </h1>
           </div>
           <div className="flex items-center gap-3">
             {isStudentMode && !isReviewMode && (
-              <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-1">
+              <span className="bg-[#E8F5E9] text-[#00C853] px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-1">
                 <User className="w-3 h-3" /> Student View
               </span>
             )}
@@ -369,8 +369,8 @@ const App: React.FC = () => {
             {/* Empty State (Teacher Mode) */}
             {!content && loadingStatus === 'idle' && !error && !isStudentMode && !isReviewMode && (
               <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
-                <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="w-8 h-8 text-indigo-400" />
+                <div className="w-16 h-16 bg-[#E8F5E9] rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Sparkles className="w-8 h-8 text-[#00C853]" />
                 </div>
                 <h2 className="text-xl font-semibold text-slate-800 mb-2">Teacher Dashboard</h2>
                 <p className="text-slate-500 max-w-md mx-auto mb-6">
@@ -384,7 +384,7 @@ const App: React.FC = () => {
                <div className="space-y-6 animate-pulse">
                   <div className="flex items-center justify-center h-64">
                     <div className="text-center">
-                        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto mb-4" />
+                        <Loader2 className="w-10 h-10 text-[#00C853] animate-spin mx-auto mb-4" />
                         <p className="text-slate-500 font-medium animate-pulse">
                           {loadingStatus === 'analyzing_video' && 'Đang phân tích video...'}
                           {loadingStatus === 'generating_content' && 'Đang tạo nội dung bài tập...'}
@@ -403,7 +403,7 @@ const App: React.FC = () => {
 
             {/* Score Banner */}
             {isSubmitted && scoreData && (
-              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg mb-8 animate-fade-in relative overflow-hidden">
+              <div className="bg-[#00C853] rounded-2xl p-6 text-white shadow-lg mb-8 animate-fade-in relative overflow-hidden">
                 <div className="flex flex-col md:flex-row items-center justify-between relative z-10 gap-4">
                   <div className="flex-1">
                     <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -412,7 +412,7 @@ const App: React.FC = () => {
                     </h2>
                     
                     {!isReviewMode && (
-                         <p className="text-indigo-100 mt-1">
+                         <p className="text-white/90 mt-1">
                           {scoreData.correct === scoreData.total ? "Tuyệt vời! Điểm tuyệt đối." : "Đã hoàn thành bài kiểm tra."}
                         </p>
                     )}
@@ -422,7 +422,7 @@ const App: React.FC = () => {
                   {isStudentMode && !isReviewMode && !formSubmitted && (
                     <button 
                          onClick={() => setShowSaveModal(true)}
-                         className="bg-white text-indigo-700 px-6 py-3 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-all shadow-md flex items-center gap-2 whitespace-nowrap hover:scale-105 active:scale-95"
+                         className="bg-white text-[#00C853] px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#E8F5E9] transition-all shadow-md flex items-center gap-2 whitespace-nowrap hover:scale-105 active:scale-95"
                     >
                         <Save className="w-4 h-4" />
                         Nộp Kết Quả
@@ -547,11 +547,11 @@ const App: React.FC = () => {
             {showSaveModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-slide-up">
-                  <div className="bg-indigo-600 px-6 py-4 flex items-center justify-between">
+                  <div className="bg-[#00C853] px-6 py-4 flex items-center justify-between">
                     <h3 className="text-white font-bold text-lg flex items-center gap-2">
                       <Cloud className="w-5 h-5" /> Nộp Bài Cho Giáo Viên
                     </h3>
-                    <button onClick={() => setShowSaveModal(false)} className="text-indigo-200 hover:text-white transition-colors">
+                    <button onClick={() => setShowSaveModal(false)} className="text-white/80 hover:text-white transition-colors">
                       <X className="w-5 h-5" />
                     </button>
                   </div>
@@ -565,7 +565,7 @@ const App: React.FC = () => {
                         onChange={(e) => setStudentName(e.target.value)}
                         placeholder="Nguyễn Văn A"
                         autoFocus
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00C853] focus:border-[#00C853] outline-none transition-all"
                       />
                     </div>
                     
@@ -629,14 +629,14 @@ const App: React.FC = () => {
                           }
                         }}
                         placeholder="Bài tập này thế nào?"
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all resize-none"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00C853] focus:border-[#00C853] outline-none transition-all resize-none"
                       />
                       {feedbackTimerId && studentFeedback.trim().length > 0 && (
                         <p className="text-xs text-slate-500 mt-1">Sẽ tự động nộp sau 5 giây...</p>
                       )}
                     </div>
 
-                    <div className="bg-indigo-50 p-3 rounded-lg flex items-center justify-between text-indigo-900 font-medium">
+                    <div className="bg-[#E8F5E9] p-3 rounded-lg flex items-center justify-between text-[#009624] font-medium">
                       <span>Điểm của bạn:</span>
                       <span className="text-lg font-bold">{scoreData?.correct} / {scoreData?.total}</span>
                     </div>
@@ -652,7 +652,7 @@ const App: React.FC = () => {
                     <button 
                       onClick={handleSubmitToForm}
                       disabled={loadingStatus === 'uploading' || !studentName.trim()}
-                      className={`px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg shadow hover:bg-indigo-700 transition-all flex items-center gap-2 ${loadingStatus === 'uploading' || !studentName.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`px-4 py-2 bg-[#00C853] text-white font-bold rounded-lg shadow hover:bg-[#009624] transition-all flex items-center gap-2 ${loadingStatus === 'uploading' || !studentName.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       {loadingStatus === 'uploading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                       {loadingStatus === 'uploading' ? 'Đang gửi...' : 'Nộp Bài'}
@@ -695,7 +695,7 @@ const App: React.FC = () => {
                       <button 
                          onClick={handleSaveExerciseToDrive}
                          disabled={loadingStatus === 'uploading'}
-                         className="flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-700 font-medium rounded-lg hover:bg-indigo-100 transition-colors border border-indigo-200"
+                         className="flex items-center gap-2 px-3 py-2 bg-antoree-lightGreen text-antoree-green font-medium rounded-lg hover:bg-green-100 transition-colors border border-green-200"
                       >
                         {loadingStatus === 'uploading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         {loadingStatus === 'uploading' ? 'Đang lưu...' : 'Lưu Đề (Drive)'}
@@ -814,7 +814,7 @@ const App: React.FC = () => {
 
       {/* STICKY SUBMIT BAR - Student Mode Only (Floating at bottom) */}
       {isStudentMode && content && !isSubmitted && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-indigo-500 shadow-2xl z-40 print:hidden animate-slide-up">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-antoree-green shadow-2xl z-40 print:hidden animate-slide-up">
           <div className="max-w-5xl mx-auto px-4 py-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex-1">
@@ -839,7 +839,7 @@ const App: React.FC = () => {
 
       {/* STICKY RESULT BAR - After submission (show feedback prompt) */}
       {isStudentMode && isSubmitted && !formSubmitted && (
-        <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-indigo-600 to-purple-600 shadow-2xl z-40 print:hidden animate-slide-up">
+        <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-antoree-green to-green-600 shadow-2xl z-40 print:hidden animate-slide-up">
           <div className="max-w-5xl mx-auto px-4 py-4">
             <div className="flex items-center justify-between gap-4 text-white">
               <div className="flex-1">
@@ -847,13 +847,13 @@ const App: React.FC = () => {
                   <Trophy className="w-5 h-5 text-yellow-300" />
                   Điểm: {scoreData?.correct} / {scoreData?.total}
                 </p>
-                <p className="text-indigo-100 text-sm">
+                <p className="text-green-100 text-sm">
                   Đừng quên nộp kết quả cho giáo viên nhé!
                 </p>
               </div>
               <button 
                 onClick={() => setShowSaveModal(true)}
-                className="flex items-center gap-2 px-8 py-4 bg-white text-indigo-700 font-bold rounded-xl hover:bg-indigo-50 shadow-lg transition-all hover:scale-105 active:scale-95"
+                className="flex items-center gap-2 px-8 py-4 bg-white text-antoree-green font-bold rounded-xl hover:bg-antoree-lightGreen shadow-lg transition-all hover:scale-105 active:scale-95"
               >
                 <Save className="w-6 h-6" />
                 <span className="text-lg">Nộp Kết Quả</span>

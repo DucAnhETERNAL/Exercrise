@@ -96,7 +96,7 @@ const PaginatedExerciseView: React.FC<PaginatedExerciseViewProps> = ({
         </div>
         <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
           <div 
-            className="bg-gradient-to-r from-indigo-500 to-purple-600 h-full rounded-full transition-all duration-300 ease-out"
+            className="bg-gradient-to-r from-antoree-green to-green-600 h-full rounded-full transition-all duration-300 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -141,7 +141,7 @@ const PaginatedExerciseView: React.FC<PaginatedExerciseViewProps> = ({
           className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
             currentPage === 0
               ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg'
+              : 'bg-antoree-green text-white hover:bg-antoree-darkGreen shadow-md hover:shadow-lg'
           }`}
         >
           <ChevronLeft className="w-5 h-5" />
@@ -169,7 +169,7 @@ const PaginatedExerciseView: React.FC<PaginatedExerciseViewProps> = ({
                 onClick={() => goToPage(pageNum)}
                 className={`w-10 h-10 rounded-lg font-semibold transition-all ${
                   pageNum === currentPage
-                    ? 'bg-indigo-600 text-white shadow-md scale-110'
+                    ? 'bg-antoree-green text-white shadow-md scale-110'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -185,7 +185,7 @@ const PaginatedExerciseView: React.FC<PaginatedExerciseViewProps> = ({
           className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
             currentPage === totalPages - 1
               ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg'
+              : 'bg-antoree-green text-white hover:bg-antoree-darkGreen shadow-md hover:shadow-lg'
           }`}
         >
           Sau
