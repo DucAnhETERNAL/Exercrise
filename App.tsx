@@ -280,7 +280,14 @@ const App: React.FC = () => {
           }
         } else {
           // Standard check for Multiple Choice / Text
-          if (userAnswer === q.correctAnswer) {
+          // Normalize both answers: trim whitespace and compare case-insensitively
+          const normalizedUserAnswer = userAnswer?.trim().toLowerCase() || '';
+          const normalizedCorrectAnswer = q.correctAnswer?.trim().toLowerCase() || '';
+          
+          // Also check if user answer matches any part of correct answer (for partial matches)
+          if (normalizedUserAnswer === normalizedCorrectAnswer || 
+              normalizedCorrectAnswer.includes(normalizedUserAnswer) ||
+              normalizedUserAnswer.includes(normalizedCorrectAnswer)) {
             correctCount++;
           }
         }

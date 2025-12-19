@@ -540,6 +540,9 @@ export const generateExercises = async (
     content.sections.forEach(section => {
       if (section.type === ExerciseType.LISTENING && Array.isArray(section.questions)) {
         section.questions.forEach(question => {
+          // Clear any existing audio data first to prevent stale data
+          question.audioData = undefined;
+          
           // Build the audio text: question + options
           let audioText = question.questionText;
           
@@ -565,15 +568,35 @@ export const generateExercises = async (
         // Add delay between requests (except for the first one)
         // INCREASE DELAY to avoid rate limiting/partial generation
         if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Increased from 800ms to 2000ms
+          await new Promise(resolve => setTimeout(resolve, 2500)); // Increased to 2500ms for better reliability
         }
         
-        // Generate audio once and store as base64
-        const audioData = await generateAudioBase64(audioText);
+        // Generate audio with retry logic - ensure we get full audio
+        let audioData: string | undefined = undefined;
+        let retryCount = 0;
+        const maxRetries = 2;
+        
+        while (!audioData && retryCount <= maxRetries) {
+          if (retryCount > 0) {
+            // Wait longer between retries
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+          
+          audioData = await generateAudioBase64(audioText);
+          
+          // Validate audio data is not empty or too short (basic check)
+          if (audioData && audioData.length < 100) {
+            console.warn(`Audio data too short for question ${i}, retrying...`);
+            audioData = undefined;
+          }
+          
+          retryCount++;
+        }
+        
         if (audioData) {
           question.audioData = audioData;
         } else {
-            console.warn(`Failed to generate audio for question ${i}. Falling back...`);
+          console.warn(`Failed to generate audio for question ${i} after ${maxRetries} retries.`);
         }
       }
     }
