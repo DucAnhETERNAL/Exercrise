@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { CefrLevel, ExerciseType, UserPreferences, LoadingStatus } from '../types';
-import { Type, LayoutList, Hash, Video, Upload, Loader2 } from 'lucide-react';
+import { Type, LayoutList, Hash, Video, Upload, Loader2, ChevronUp, ChevronDown } from 'lucide-react';
 import { analyzeVideoForPreferences } from '../services/geminiService';
 
 interface InputFormProps {
@@ -13,12 +13,97 @@ interface InputFormProps {
 
 const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, loadingStatus, onVideoAnalysisStatusChange }) => {
   const [analyzingVideo, setAnalyzingVideo] = useState(false);
+  const [questionCountError, setQuestionCountError] = useState<string | null>(null);
+  const [questionCountInput, setQuestionCountInput] = useState<string>(preferences.questionCount.toString());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLoading = loadingStatus !== 'idle';
   
+  // Sync input when preferences.questionCount changes externally
+  useEffect(() => {
+    setQuestionCountInput(preferences.questionCount.toString());
+  }, [preferences.questionCount]);
+  
   const handleChange = <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
     onChange({ ...preferences, [key]: value });
+  };
+
+  const handleQuestionCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    
+    // Allow empty string (for clearing)
+    if (value === '') {
+      setQuestionCountInput('');
+      setQuestionCountError(null);
+      return;
+    }
+    
+    // Only allow digits
+    if (!/^\d+$/.test(value)) {
+      setQuestionCountError('Vui lòng chỉ nhập số');
+      return;
+    }
+    
+    const numValue = parseInt(value);
+    
+    // Check if it's 0
+    if (numValue === 0) {
+      setQuestionCountInput(value);
+      setQuestionCountError('Số câu hỏi phải lớn hơn 0');
+      return;
+    }
+    
+    // Check if it exceeds max
+    if (numValue > 20) {
+      setQuestionCountInput(value);
+      setQuestionCountError('Số câu hỏi tối đa là 20');
+      return;
+    }
+    
+    // Valid value - update both input and preferences
+    setQuestionCountInput(value);
+    handleChange('questionCount', numValue);
+    setQuestionCountError(null);
+  };
+
+  const handleIncrement = () => {
+    const currentValue = preferences.questionCount || 1;
+    if (currentValue < 20) {
+      const newValue = currentValue + 1;
+      handleChange('questionCount', newValue);
+      setQuestionCountInput(newValue.toString());
+      setQuestionCountError(null);
+    } else {
+      setQuestionCountError('Số câu hỏi tối đa là 20');
+    }
+  };
+
+  const handleDecrement = () => {
+    const currentValue = preferences.questionCount || 1;
+    if (currentValue > 1) {
+      const newValue = currentValue - 1;
+      handleChange('questionCount', newValue);
+      setQuestionCountInput(newValue.toString());
+      setQuestionCountError(null);
+    } else {
+      setQuestionCountError('Số câu hỏi phải lớn hơn 0');
+    }
+  };
+
+  const handleSubmit = () => {
+    // Validate questionCount before submitting
+    const count = preferences.questionCount;
+    if (!count || count < 1) {
+      setQuestionCountError('Vui lòng nhập số câu hỏi (từ 1 đến 20)');
+      return;
+    }
+    if (count > 20) {
+      setQuestionCountError('Số câu hỏi tối đa là 20');
+      return;
+    }
+    
+    setQuestionCountError(null);
+    onSubmit();
   };
 
   const toggleType = (type: ExerciseType) => {
@@ -41,9 +126,10 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
     
     try {
       const result = await analyzeVideoForPreferences(file, onVideoAnalysisStatusChange);
-      // Auto-populate
+      // Auto-populate including level
       onChange({
         ...preferences,
+        level: result.level,
         topic: result.topic,
         vocabulary: result.vocabulary,
         grammarFocus: result.grammarFocus,
@@ -101,6 +187,30 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
       </div>
       
       <div className="space-y-6">
+        {/* Level */}
+        <div>
+          <label className="block text-base font-semibold text-slate-700 mb-2">CEFR Level</label>
+          <div className="flex flex-wrap gap-2">
+            {Object.values(CefrLevel).map((level) => (
+              <button
+                key={level}
+                type="button"
+                onClick={() => handleChange('level', level)}
+                className={`px-5 py-3 rounded-full text-sm font-medium transition-colors shadow-sm ${
+                  preferences.level === level
+                    ? 'bg-indigo-600 text-white border-indigo-600 border'
+                    : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Chọn level để tạo đề phù hợp với trình độ học viên
+          </p>
+        </div>
+
         {/* Topic */}
         <div>
           <label className="block text-base font-semibold text-slate-700 mb-2">Topic / Theme</label>
@@ -162,24 +272,63 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
 
         <div>
            <label className="block text-base font-semibold text-slate-700 mb-2">Questions per Section</label>
-           <div className="relative w-full md:w-1/2">
-             <Hash className="absolute left-4 top-4 w-5 h-5 text-slate-400" />
+           <div className="relative w-full">
+             <Hash className="absolute left-4 top-4 w-5 h-5 text-slate-400 z-10" />
              <input 
-                type="number" 
+                type="text" 
+                inputMode="numeric"
                 min={1} 
-                max={10}
-                value={preferences.questionCount}
-                onChange={(e) => handleChange('questionCount', parseInt(e.target.value) || 5)}
-                className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-black text-lg shadow-sm"
+                max={20}
+                value={questionCountInput}
+                onChange={handleQuestionCountChange}
+                onBlur={() => {
+                  // If empty on blur, set to default 5
+                  if (questionCountInput === '' || preferences.questionCount < 1) {
+                    handleChange('questionCount', 5);
+                    setQuestionCountInput('5');
+                    setQuestionCountError(null);
+                  } else {
+                    // Ensure input matches the actual value
+                    setQuestionCountInput(preferences.questionCount.toString());
+                  }
+                }}
+                className={`w-full pl-12 pr-16 py-3.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-black text-lg shadow-sm ${
+                  questionCountError ? 'border-red-300 focus:ring-red-500' : 'border-slate-200'
+                }`}
+                placeholder="Nhập số câu hỏi"
              />
+             {/* Spinner buttons */}
+             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col">
+               <button
+                 type="button"
+                 onClick={handleIncrement}
+                 disabled={preferences.questionCount >= 20}
+                 className="p-1 hover:bg-slate-100 rounded-t-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                 aria-label="Tăng số câu hỏi"
+               >
+                 <ChevronUp className="w-4 h-4 text-slate-600" />
+               </button>
+               <button
+                 type="button"
+                 onClick={handleDecrement}
+                 disabled={preferences.questionCount <= 1}
+                 className="p-1 hover:bg-slate-100 rounded-b-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed border-t border-slate-200"
+                 aria-label="Giảm số câu hỏi"
+               >
+                 <ChevronDown className="w-4 h-4 text-slate-600" />
+               </button>
+             </div>
            </div>
+           {questionCountError && (
+             <p className="mt-2 text-sm text-red-600">{questionCountError}</p>
+           )}
         </div>
 
         <button
-          onClick={onSubmit}
-          disabled={isLoading || preferences.selectedTypes.length === 0}
+          onClick={handleSubmit}
+          disabled={isLoading || preferences.selectedTypes.length === 0 || !!questionCountError}
           className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg transition-all transform hover:-translate-y-0.5 ${
-            isLoading || preferences.selectedTypes.length === 0
+            isLoading || preferences.selectedTypes.length === 0 || !!questionCountError
               ? 'bg-slate-300 cursor-not-allowed'
               : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-xl'
           }`}

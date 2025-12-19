@@ -204,15 +204,23 @@ export const analyzeVideoForPreferences = async (
     
     const prompt = `
       I have provided ${frames.length} screenshots taken at regular intervals from a single long video (e.g., 1 hour lecture).
-      Your goal is to extract the MAXIMUM amount of learning data possible from these visuals.
+      Your goal is to extract the MAXIMUM amount of learning data possible from these visuals, with special focus on accurately determining the student's CEFR level.
 
-      Please perform a deep analysis:
+      Please perform a comprehensive analysis:
       1. **Vocabulary Extraction (Critical):** Scan all text visible on the slides/whiteboard (OCR). Extract a COMPREHENSIVE list of vocabulary (aim for 30-50+ words/phrases if available). Focus on the specific terminology used in the lesson, not just basic words.
       2. **Grammar Identification:** Look at the sentence structures shown on the slides. Identify the specific grammar points being taught or used (e.g., "Third Conditional," "Passive Voice with Modals," "Advanced Relative Clauses"). Be precise.
       3. **Topic:** Define the specific academic or conversational topic.
-      4. **Level:** Assess CEFR level based on the complexity of the written text and grammar on the slides.
+      4. **Level Assessment (CRITICAL - Analyze thoroughly):** 
+         - Analyze the complexity of vocabulary used (basic everyday words = A1/A2, academic/professional terms = B2/C1/C2)
+         - Examine sentence structures (simple sentences = A1/A2, complex clauses and advanced grammar = B2/C1/C2)
+         - Look at the depth of content (basic topics = A1/A2, abstract concepts and nuanced discussions = B2/C1/C2)
+         - Consider the sophistication of explanations and examples
+         - Assess the overall linguistic complexity visible in the video
+         - Determine the most appropriate CEFR level: A1 (Beginner), A2 (Elementary), B1 (Intermediate), B2 (Upper-Intermediate), C1 (Advanced), C2 (Proficient)
+         - Be precise: if the content shows intermediate-level material, choose B1; if it shows advanced academic content, choose C1 or C2
 
       Return a JSON object matching the schema. For 'vocabulary', provide a comma-separated string of the extensive list.
+      For 'level', provide the most accurate CEFR level based on your comprehensive analysis.
     `;
 
     const schema = {
@@ -349,14 +357,17 @@ export const generateExercises = async (
     Create a set of English exercises for daily assessment.
     
     Context & Requirements:
+    - CEFR Level: ${prefs.level ? `${prefs.level} - Create exercises appropriate for this level. Adjust vocabulary complexity, sentence structures, and content depth accordingly.` : "Not specified - Use intermediate level (B1-B2) as default"}
     - Topic/Theme: ${prefs.topic || "General"}
     - Target Vocabulary: ${selectedVocabulary}
     - Target Grammar: ${prefs.grammarFocus || "Mixed grammar"}
     - Question Count per Section: ${prefs.questionCount}
     - Required Section Types: ${prefs.selectedTypes.join(", ")}
     
-    IMPORTANT: Create EXACTLY ONE section for EACH selected exercise type.
-    For example, if "Speaking & Pronunciation" is selected, create only 1 Speaking section with ${prefs.questionCount} questions.
+    IMPORTANT: 
+    - Create EXACTLY ONE section for EACH selected exercise type.
+    - For example, if "Speaking & Pronunciation" is selected, create only 1 Speaking section with ${prefs.questionCount} questions.
+    - ${prefs.level ? `Ensure ALL exercises are appropriate for ${prefs.level} level: vocabulary difficulty, grammar complexity, reading passage complexity, and speaking phrases should match this level.` : ''}
     
     For 'Listening Comprehension' sections (TOEIC Part 1 style):
       - Each question should have an image showing a simple, clear scene (people, objects, actions).
@@ -385,6 +396,7 @@ export const generateExercises = async (
       - Set 'options' to an empty array [] since it's not multiple choice.
     
     Ensure the English is natural and appropriate for daily practice.
+    ${prefs.level ? `CRITICAL: All exercises must match ${prefs.level} level standards. Use vocabulary, grammar structures, and content complexity appropriate for ${prefs.level} learners.` : ''}
     Return the response as a valid JSON object matching the schema.
   `;
 
@@ -522,35 +534,45 @@ export const generateExercises = async (
     }
 
     // 3. Post-process: Generate Audio for Listening sections (Cost-optimized: generate once)
-    const audioGenerationPromises: Promise<void>[] = [];
+    // Process sequentially with delay to avoid rate limiting and audio quality issues
+    const audioTasks: Array<{ question: any; audioText: string }> = [];
 
     content.sections.forEach(section => {
       if (section.type === ExerciseType.LISTENING && Array.isArray(section.questions)) {
         section.questions.forEach(question => {
-          audioGenerationPromises.push((async () => {
-            // Build the audio text: question + options
-            let audioText = question.questionText;
-            
-            // Add options with letters (A, B, C, D)
-            if (question.options && question.options.length > 0) {
-              question.options.forEach((opt: string, i: number) => {
-                const letter = String.fromCharCode(65 + i);
-                audioText += `. Option ${letter}, ${opt}`;
-              });
-            }
-            
-            // Generate audio once and store as base64
-            const audioData = await generateAudioBase64(audioText);
-            if (audioData) {
-              question.audioData = audioData;
-            }
-          })());
+          // Build the audio text: question + options
+          let audioText = question.questionText;
+          
+          // Add options with letters (A, B, C, D)
+          if (question.options && question.options.length > 0) {
+            question.options.forEach((opt: string, i: number) => {
+              const letter = String.fromCharCode(65 + i);
+              audioText += `. ${letter}, ${opt}`;
+            });
+          }
+          
+          audioTasks.push({ question, audioText });
         });
       }
     });
 
-    if (audioGenerationPromises.length > 0) {
-      await Promise.all(audioGenerationPromises);
+    // Process audio generation sequentially with delay to avoid rate limiting
+    // This prevents audio quality issues when generating more than 4 questions
+    if (audioTasks.length > 0) {
+      for (let i = 0; i < audioTasks.length; i++) {
+        const { question, audioText } = audioTasks[i];
+        
+        // Add delay between requests (except for the first one)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 800)); // 800ms delay
+        }
+        
+        // Generate audio once and store as base64
+        const audioData = await generateAudioBase64(audioText);
+        if (audioData) {
+          question.audioData = audioData;
+        }
+      }
     }
 
     return content;

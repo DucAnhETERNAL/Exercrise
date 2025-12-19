@@ -16,6 +16,7 @@ export enum ExerciseType {
 }
 
 export interface UserPreferences {
+  level?: CefrLevel;
   topic: string;
   vocabulary: string;
   grammarFocus: string;

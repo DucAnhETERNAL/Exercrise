@@ -92,6 +92,18 @@ const App: React.FC = () => {
   // --- Handlers ---
 
   const handleGenerate = async () => {
+    // Validate questionCount before generating
+    if (!preferences.questionCount || preferences.questionCount < 1) {
+      setError("Vui lòng nhập số câu hỏi");
+      setLoadingStatus('idle');
+      return;
+    }
+    if (preferences.questionCount > 20) {
+      setError("Số câu hỏi tối đa là 20");
+      setLoadingStatus('idle');
+      return;
+    }
+
     setLoadingStatus('generating_content');
     setError(null);
     setContent(null); 

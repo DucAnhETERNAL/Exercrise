@@ -149,6 +149,7 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
 }) => {
   const isCorrect = userSelected === question.correctAnswer;
   const isListening = sectionType === ExerciseType.LISTENING;
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Speak option text when clicked (only for non-listening exercises)
   const speakOption = (text: string) => {
@@ -263,6 +264,7 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
                   <span className="text-sm font-semibold text-indigo-900">Listening Track</span>
                 </div>
                 <audio 
+                  ref={audioRef}
                   controls 
                   className="w-full"
                   src={getAudioUrl()}
@@ -317,11 +319,24 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
               return (
                 <button
                   key={i}
-                  onClick={() => {
+                  onClick={(e) => {
                     if (!isSubmitted) {
-                      onSelect(opt);
-                      // Speak the option when clicked (only for non-listening)
-                      speakOption(opt);
+                      // For Listening: ensure audio continues playing
+                      if (isListening && audioRef.current) {
+                        const wasPlaying = !audioRef.current.paused;
+                        // Select the answer
+                        onSelect(opt);
+                        // If audio was playing, continue playing it
+                        if (wasPlaying && audioRef.current.paused) {
+                          audioRef.current.play().catch(() => {
+                            // Ignore play errors (user may have paused manually)
+                          });
+                        }
+                      } else {
+                        onSelect(opt);
+                        // Speak the option when clicked (only for non-listening)
+                        speakOption(opt);
+                      }
                     }
                   }}
                   disabled={isSubmitted || showAnswer}
