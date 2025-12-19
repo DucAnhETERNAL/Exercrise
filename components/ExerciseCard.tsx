@@ -474,6 +474,7 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [feedback, setFeedback] = useState<PronunciationFeedback | null>(null);
+  const [showDetails, setShowDetails] = useState(true); // New state for toggling details
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -706,21 +707,53 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
 
           {/* Pronunciation Feedback - Duolingo Style */}
           {feedback && (
-            <div className="mt-4 space-y-4">
-              {/* Accuracy Percentage */}
-              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
-                <div className="text-center">
-                  <div className="text-5xl font-bold mb-2">{Math.round(feedback.pronunciationScore)}%</div>
-                  <div className="text-lg opacity-90">Độ chính xác phát âm</div>
+            <div className="mt-4 space-y-6">
+              {/* Detailed Metrics Grid */}
+              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm transition-all">
+                <h4 className="text-center font-bold text-slate-700 mb-4 text-lg">Điểm tổng</h4>
+                <div className="text-center text-5xl font-black text-green-500 mb-8">{Math.round(feedback.pronunciationScore)}</div>
+
+                {showDetails && (
+                  <div className="grid grid-cols-2 gap-4 animate-fade-in">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
+                      <div className="text-sm text-slate-500 font-medium mb-1">Độ chính xác</div>
+                      <div className="text-2xl font-bold text-slate-800">{Math.round(feedback.accuracyScore)}</div>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
+                      <div className="text-sm text-slate-500 font-medium mb-1">Độ trôi chảy</div>
+                      <div className="text-2xl font-bold text-green-600">{Math.round(feedback.fluencyScore)}</div>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
+                      <div className="text-sm text-slate-500 font-medium mb-1">Độ hoàn thiện</div>
+                      <div className="text-2xl font-bold text-slate-800">{Math.round(feedback.completenessScore)}</div>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
+                      <div className="text-sm text-slate-500 font-medium mb-1">Phát âm</div>
+                      <div className="text-2xl font-bold text-green-600">{Math.round(feedback.pronunciationScore)}</div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-6 flex justify-center">
+                  <button 
+                    onClick={() => setShowDetails(!showDetails)}
+                    className="text-sm text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors"
+                  >
+                    {showDetails ? (
+                      <>Ẩn chi tiết <span className="text-xs">▲</span></>
+                    ) : (
+                      <>Xem chi tiết <span className="text-xs">▼</span></>
+                    )}
+                  </button>
                 </div>
               </div>
 
               {/* Word-by-Word Feedback - Duolingo Style */}
-              {feedback.wordFeedback && feedback.wordFeedback.length > 0 && (
-                <div className="bg-white rounded-xl border border-slate-200 p-6">
-                  <div className="text-center mb-4">
-                    <p className="text-sm font-semibold text-slate-600 mb-2">Bạn đã nói:</p>
-                    <div className="text-2xl font-bold leading-relaxed">
+              {showDetails && feedback.wordFeedback && feedback.wordFeedback.length > 0 && (
+                <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm animate-fade-in">
+                  <div className="text-center mb-6">
+                    <p className="text-sm font-semibold text-slate-500 mb-3 uppercase tracking-wide">Chi tiết từng từ</p>
+                    <div className="text-2xl font-bold leading-relaxed flex flex-wrap justify-center gap-2">
                       {feedback.wordFeedback.map((word, idx) => {
                         let colorClass = '';
                         if (word.status === 'correct') {
@@ -732,24 +765,33 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
                         }
                         
                         return (
-                          <span key={idx} className={colorClass}>
+                          <span key={idx} className={`${colorClass} transition-all hover:scale-110 cursor-default`} title={`Score: ${Math.round(word.score || 0)}`}>
                             {word.word}
-                            {idx < feedback.wordFeedback.length - 1 && ' '}
                           </span>
                         );
                       })}
                     </div>
                   </div>
+
+                  <div className="flex justify-center gap-4 text-xs font-medium text-slate-500">
+                    <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-600"></span> Excellent (≥80)</div>
+                    <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-500"></span> Good (60-79)</div>
+                    <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500"></span> Needs Work (&lt;60)</div>
+                  </div>
                 </div>
               )}
 
+
               {/* Playback */}
               {recordedBlob && (
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <div className="font-bold text-slate-700 mb-2">
-                    Nghe lại bản ghi của bạn:
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center gap-3">
+                  <div className="bg-white p-2 rounded-full shadow-sm">
+                     <Volume2 className="w-5 h-5 text-indigo-600" />
                   </div>
-                  <audio controls className="w-full" src={URL.createObjectURL(recordedBlob)} />
+                  <div className="flex-1">
+                      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Bản ghi của bạn</div>
+                      <audio controls className="w-full h-8" src={URL.createObjectURL(recordedBlob)} />
+                  </div>
                 </div>
               )}
             </div>

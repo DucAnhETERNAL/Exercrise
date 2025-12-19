@@ -603,7 +603,7 @@ export const generateExercises = async (
  * This is optimized for cost - generate once and reuse.
  */
 export const generateAudioBase64 = async (text: string): Promise<string | undefined> => {
-  const model = "gemini-2.5-flash-preview-tts";
+  const model = "gemini-2.0-flash-exp"; // Model hỗ trợ TTS tốt nhất hiện nay
 
   try {
     const response = await withRetry(
@@ -642,7 +642,7 @@ export const generateAudioBase64 = async (text: string): Promise<string | undefi
  * @deprecated Use generateAudioBase64 for better cost optimization
  */
 export const generateAudio = async (text: string): Promise<AudioBuffer> => {
-  const model = "gemini-2.5-flash-preview-tts";
+  const model = "gemini-2.0-flash-exp";
 
   try {
     const response = await withRetry(
@@ -706,134 +706,61 @@ export const evaluatePronunciation = async (
   audioBlob: Blob,
   targetPhrase: string
 ): Promise<PronunciationFeedback> => {
-  const model = "gemini-2.5-flash";
-
   try {
-    // Convert blob to base64
-    const base64Audio = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        // Extract base64 data (remove data:audio/webm;base64, prefix)
-        const base64 = result.split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(audioBlob);
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'recording.webm');
+    formData.append('referenceText', targetPhrase);
+    formData.append('locale', 'en-US');
+    // Default level if not provided (you might want to pass this from props later)
+    formData.append('level', 'A1'); 
+
+    const response = await fetch('https://market-api.antoree.com/api/v1/pronunciation/quick-assess', {
+      method: 'POST',
+      body: formData,
     });
 
-    const prompt = `
-      You are a pronunciation assessment system similar to Duolingo.
-      Evaluate this audio recording where the student was asked to say: "${targetPhrase}"
-      
-      Provide detailed metrics (0-100 scale for each):
-      
-      1. **Accuracy Score**: How accurately were the individual phonemes/sounds pronounced?
-         - 90-100: Native-like accuracy
-         - 70-89: Good accuracy with minor errors
-         - 50-69: Noticeable pronunciation errors
-         - Below 50: Significant pronunciation issues
-      
-      2. **Fluency Score**: How smooth, natural, and confident was the delivery?
-         - Considers: pace, rhythm, hesitations, false starts
-         - 90-100: Very smooth and natural
-         - 70-89: Generally fluent with minor pauses
-         - 50-69: Some hesitations or unnatural pace
-         - Below 50: Choppy or very hesitant
-      
-      3. **Completeness Score**: How much of the target phrase was actually spoken?
-         - 100: All words spoken
-         - 70-99: Most words spoken
-         - 50-69: Half or more spoken
-         - Below 50: Less than half spoken
-      
-      4. **Pronunciation Score**: Overall weighted score combining the above metrics.
-         - Formula: (Accuracy * 0.5 + Fluency * 0.3 + Completeness * 0.2)
-      
-      5. **Word-by-Word Analysis**: Analyze each word in "${targetPhrase}" separately.
-         - For each word, provide:
-           - word: the exact word from the target phrase
-           - status: "correct" (pronounced perfectly, score 80-100), "partial" (pronounced acceptably but with minor issues, score 50-79), or "incorrect" (pronounced incorrectly or missing, score 0-49)
-           - score: 0-100 for this specific word's pronunciation quality
-         - Split the target phrase into individual words and evaluate each one.
-         - Be precise: if a word was pronounced correctly, mark it as "correct". If it has minor issues but is understandable, mark as "partial". If it's wrong or missing, mark as "incorrect".
-      
-      Be objective and precise in your assessment, similar to Duolingo's word-by-word feedback.
-    `;
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
 
-    const schema = {
-      type: Type.OBJECT,
-      properties: {
-        pronunciationScore: { 
-          type: Type.NUMBER, 
-          description: "Overall pronunciation quality score (0-100)" 
-        },
-        accuracyScore: { 
-          type: Type.NUMBER, 
-          description: "Accuracy of phoneme pronunciation (0-100)" 
-        },
-        fluencyScore: { 
-          type: Type.NUMBER, 
-          description: "Smoothness and naturalness of speech (0-100)" 
-        },
-        completenessScore: { 
-          type: Type.NUMBER, 
-          description: "How much of target phrase was spoken (0-100)" 
-        },
-        wordFeedback: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              word: { type: Type.STRING, description: "The word from the target phrase" },
-              status: { 
-                type: Type.STRING, 
-                enum: ["correct", "partial", "incorrect"],
-                description: "correct = perfect (80-100), partial = acceptable with minor issues (50-79), incorrect = wrong or missing (0-49)"
-              },
-              score: { 
-                type: Type.NUMBER, 
-                description: "Pronunciation score for this specific word (0-100)" 
-              }
-            },
-            required: ["word", "status"]
-          },
-          description: "Word-by-word analysis of pronunciation"
-        }
-      },
-      required: ["pronunciationScore", "accuracyScore", "fluencyScore", "completenessScore", "wordFeedback"]
+    const result = await response.json();
+
+    if (!result.success || !result.data) {
+       throw new Error("API returned unsuccessful response or missing data");
+    }
+
+    const scores = result.data.scores;
+    const words = result.data.words;
+
+    // Map Antoree API response to our PronunciationFeedback interface
+    const wordFeedback: WordFeedback[] = words.map((w: any) => {
+      let status: 'correct' | 'partial' | 'incorrect' = 'incorrect';
+      const score = w.PronunciationAssessment?.AccuracyScore || 0;
+
+      if (score >= 80) {
+        status = 'correct';
+      } else if (score >= 50) {
+        status = 'partial';
+      }
+
+      return {
+        word: w.Word,
+        status: status,
+        score: score
+      };
+    });
+
+    return {
+      pronunciationScore: scores.pronunciation,
+      accuracyScore: scores.accuracy,
+      fluencyScore: scores.fluency,
+      completenessScore: scores.completeness,
+      wordFeedback: wordFeedback
     };
 
-    const response = await withRetry(
-      () => ai.models.generateContent({
-        model: model,
-        contents: {
-          parts: [
-            {
-              inlineData: {
-                data: base64Audio,
-                mimeType: audioBlob.type || 'audio/webm'
-              }
-            },
-            { text: prompt }
-          ]
-        },
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: schema,
-        },
-      }),
-      3,
-      "Pronunciation evaluation"
-    );
-
-    const text = response.text;
-    if (!text) throw new Error("No evaluation generated");
-
-    return JSON.parse(text) as PronunciationFeedback;
-
   } catch (error: any) {
-    const errorMessage = error?.message || error?.error?.message || "Unknown error";
+    console.error("Pronunciation assessment failed:", error);
+    const errorMessage = error?.message || "Unknown error";
     throw new Error(`Failed to evaluate pronunciation: ${errorMessage}`);
   }
 };
