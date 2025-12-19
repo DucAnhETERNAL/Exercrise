@@ -563,14 +563,17 @@ export const generateExercises = async (
         const { question, audioText } = audioTasks[i];
         
         // Add delay between requests (except for the first one)
+        // INCREASE DELAY to avoid rate limiting/partial generation
         if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 800)); // 800ms delay
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Increased from 800ms to 2000ms
         }
         
         // Generate audio once and store as base64
         const audioData = await generateAudioBase64(audioText);
         if (audioData) {
           question.audioData = audioData;
+        } else {
+            console.warn(`Failed to generate audio for question ${i}. Falling back...`);
         }
       }
     }
@@ -616,7 +619,7 @@ export const generateAudioBase64 = async (text: string): Promise<string | undefi
           },
         },
       }),
-      2, // Fewer retries for audio (non-critical)
+      3, // Increased retries from 2 to 3
       "Audio generation"
     );
 

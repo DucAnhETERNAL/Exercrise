@@ -267,8 +267,22 @@ const App: React.FC = () => {
       section.questions.forEach((q, qIdx) => {
         totalCount++;
         const key = `${sIdx}-${qIdx}`;
-        if (userAnswers[key] === q.correctAnswer) {
-          correctCount++;
+        const userAnswer = userAnswers[key];
+
+        if (section.type === ExerciseType.SPEAKING) {
+          // Special handling for Speaking: Check if score >= 50
+          // userAnswers stores "Score: 85"
+          if (userAnswer && userAnswer.startsWith("Score: ")) {
+            const score = parseInt(userAnswer.split(": ")[1], 10);
+            if (!isNaN(score) && score >= 60) {
+              correctCount++;
+            }
+          }
+        } else {
+          // Standard check for Multiple Choice / Text
+          if (userAnswer === q.correctAnswer) {
+            correctCount++;
+          }
         }
       });
     });
