@@ -17,6 +17,7 @@ interface QuestionWithSection {
   sectionIndex: number;
   questionIndex: number;
   question: any;
+  page: number;
 }
 
 const PaginatedExerciseView: React.FC<PaginatedExerciseViewProps> = ({
@@ -27,21 +28,23 @@ const PaginatedExerciseView: React.FC<PaginatedExerciseViewProps> = ({
   showAnswersGlobal,
   questionsPerPage = 1
 }) => {
-  // Flatten all questions from all sections
-  const allQuestions: QuestionWithSection[] = useMemo(() => {
-    const questions: QuestionWithSection[] = [];
+  // Flatten all questions from all sections with page info
+  const allQuestions: (QuestionWithSection & { page: number })[] = useMemo(() => {
+    const questions: (QuestionWithSection & { page: number })[] = [];
     content.sections.forEach((section, sIdx) => {
       section.questions.forEach((question, qIdx) => {
+        const questionIndex = questions.length;
         questions.push({
           section,
           sectionIndex: sIdx,
           questionIndex: qIdx,
-          question
+          question,
+          page: Math.floor(questionIndex / questionsPerPage)
         });
       });
     });
     return questions;
-  }, [content]);
+  }, [content, questionsPerPage]);
 
   const totalPages = Math.ceil(allQuestions.length / questionsPerPage);
   const [currentPage, setCurrentPage] = useState(0);
@@ -99,9 +102,12 @@ const PaginatedExerciseView: React.FC<PaginatedExerciseViewProps> = ({
         </div>
       </div>
 
-      {/* Current Page Questions */}
+      {/* All Questions - Render all but hide non-current page */}
       <div className="space-y-6 mb-8">
-        {currentPageQuestions.map((q) => {
+        {allQuestions.map((q) => {
+          // Only show questions from current page
+          const isVisible = q.page === currentPage;
+          
           // Create a modified section with only this question
           const modifiedSection = {
             ...q.section,
@@ -109,15 +115,20 @@ const PaginatedExerciseView: React.FC<PaginatedExerciseViewProps> = ({
           };
 
           return (
-            <ExerciseCard
-              key={`q-${q.sectionIndex}-${q.questionIndex}-page-${currentPage}`}
-              section={modifiedSection}
-              sectionIndex={q.sectionIndex}
-              userAnswers={userAnswers}
-              onAnswerSelect={onAnswerSelect}
-              isSubmitted={isSubmitted}
-              showAnswersGlobal={showAnswersGlobal}
-            />
+            <div
+              key={`q-${q.sectionIndex}-${q.questionIndex}`}
+              className={isVisible ? '' : 'hidden'}
+            >
+              <ExerciseCard
+                section={modifiedSection}
+                sectionIndex={q.sectionIndex}
+                baseQuestionIndex={q.questionIndex}
+                userAnswers={userAnswers}
+                onAnswerSelect={onAnswerSelect}
+                isSubmitted={isSubmitted}
+                showAnswersGlobal={showAnswersGlobal}
+              />
+            </div>
           );
         })}
       </div>

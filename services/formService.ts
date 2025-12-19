@@ -33,6 +33,9 @@ export const submitToGoogleForm = async (
   if (config.feedbackEntryId) {
     formData.append(config.feedbackEntryId, submission.feedback || "");
   }
+  if (config.ratingEntryId && submission.starRating) {
+    formData.append(config.ratingEntryId, submission.starRating.toString());
+  }
 
   try {
     await fetch(submitUrl, {
@@ -44,5 +47,33 @@ export const submitToGoogleForm = async (
     return;
   } catch (error) {
     throw new Error("Không thể gửi kết quả. Vui lòng kiểm tra kết nối mạng.");
+  }
+};
+
+/**
+ * Submits the student data to a Google Sheet via Apps Script Web App.
+ * improved to handle CORS and JSON payload
+ */
+export const submitToGoogleSheet = async (
+  submission: StudentSubmission,
+  scriptUrl: string
+): Promise<void> => {
+  try {
+    // We use text/plain to avoid CORS preflight (OPTIONS) request which Apps Script often fails
+    // The Apps Script will parse the JSON content manually
+    await fetch(scriptUrl, {
+      method: "POST",
+      mode: "no-cors", 
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8",
+      },
+      body: JSON.stringify(submission),
+    });
+    
+    // With mode: 'no-cors', we can't read the response, but we assume it worked if no network error.
+    return;
+  } catch (error) {
+    console.error("Sheet Submission Error:", error);
+    throw new Error("Lỗi khi gửi dữ liệu về Google Sheet.");
   }
 };

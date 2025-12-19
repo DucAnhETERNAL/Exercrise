@@ -10,6 +10,7 @@ interface ExerciseCardProps {
   userAnswers: Record<string, string>;
   onAnswerSelect: (sectionIdx: number, questionIdx: number, option: string) => void;
   isSubmitted: boolean;
+  baseQuestionIndex?: number;
 }
 
 const ExerciseCard: React.FC<ExerciseCardProps> = ({ 
@@ -18,7 +19,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   showAnswersGlobal,
   userAnswers,
   onAnswerSelect,
-  isSubmitted
+  isSubmitted,
+  baseQuestionIndex = 0
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
@@ -95,15 +97,16 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
         {/* Questions */}
         <div className="space-y-6">
-          {section.questions.map((q, idx) => (
-            section.type === ExerciseType.SPEAKING ? (
+          {section.questions.map((q, idx) => {
+            const realIndex = baseQuestionIndex + idx;
+            return section.type === ExerciseType.SPEAKING ? (
               <SpeakingQuestion
                 key={idx}
                 question={q}
-                index={idx}
+                index={realIndex}
                 sectionIndex={sectionIndex}
-                userSelected={userAnswers[`${sectionIndex}-${idx}`]}
-                onSelect={(opt) => onAnswerSelect(sectionIndex, idx, opt)}
+                userSelected={userAnswers[`${sectionIndex}-${realIndex}`]}
+                onSelect={(opt) => onAnswerSelect(sectionIndex, realIndex, opt)}
                 showAnswer={showAnswersGlobal}
                 isSubmitted={isSubmitted}
               />
@@ -111,16 +114,16 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
               <QuestionItem 
                 key={idx} 
                 question={q} 
-                index={idx} 
+                index={realIndex} 
                 sectionIndex={sectionIndex}
                 sectionType={section.type}
-                userSelected={userAnswers[`${sectionIndex}-${idx}`]}
-                onSelect={(opt) => onAnswerSelect(sectionIndex, idx, opt)}
+                userSelected={userAnswers[`${sectionIndex}-${realIndex}`]}
+                onSelect={(opt) => onAnswerSelect(sectionIndex, realIndex, opt)}
                 showAnswer={showAnswersGlobal} 
                 isSubmitted={isSubmitted}
               />
-            )
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

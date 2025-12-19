@@ -64,6 +64,7 @@ export interface StudentSubmission {
   originalFileId: string | null; // ID of the exercise file
   score: { correct: number; total: number };
   feedback?: string; // Student feedback
+  starRating?: number; // Star rating (1-5)
   userAnswers?: Record<string, string>; // Detailed answers for each question
   timestamp: number;
 }
@@ -73,6 +74,7 @@ export interface GoogleFormConfig {
   nameEntryId: string; // entry.123456 for Name
   scoreEntryId: string; // entry.654321 for Score
   feedbackEntryId: string; // entry.789012 for Feedback
+  ratingEntryId?: string; // entry.1043069793 for Star Rating
 }
 
 export type LoadingStatus = 

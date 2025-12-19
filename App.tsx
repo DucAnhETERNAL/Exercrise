@@ -4,9 +4,9 @@ import InputForm from './components/InputForm';
 import ExerciseCard from './components/ExerciseCard';
 import PaginatedExerciseView from './components/PaginatedExerciseView';
 import { generateExercises } from './services/geminiService';
-import { uploadToDrive, loadFromDrive, initDriveApi } from './services/driveService';
-import { submitToGoogleForm } from './services/formService';
-import { Sparkles, Printer, RefreshCw, Eye, EyeOff, CheckCircle, Trophy, Copy, Share2, User, Cloud, Loader2, Save, FileCheck, MessageSquare, X, ExternalLink } from 'lucide-react';
+  import { uploadToDrive, loadFromDrive, initDriveApi } from './services/driveService';
+  import { submitToGoogleForm, submitToGoogleSheet } from './services/formService';
+  import { Sparkles, Printer, RefreshCw, Eye, EyeOff, CheckCircle, Trophy, Copy, Share2, User, Cloud, Loader2, Save, FileCheck, MessageSquare, X, ExternalLink } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- Modes ---
@@ -34,6 +34,7 @@ const App: React.FC = () => {
   // Scoring & Student Data
   const [studentName, setStudentName] = useState("");
   const [studentFeedback, setStudentFeedback] = useState("");
+  const [starRating, setStarRating] = useState<number>(0);
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [scoreData, setScoreData] = useState<{ correct: number; total: number } | null>(null);
@@ -41,11 +42,15 @@ const App: React.FC = () => {
   const [feedbackTimerId, setFeedbackTimerId] = useState<number | null>(null);
   
   // Google Form Config - Hardcoded for test version
+  // ⚠️ THAY THẾ URL DƯỚI ĐÂY BẰNG URL WEB APP CỦA BẠN SAU KHI DEPLOY GOOGLE APPS SCRIPT
+  const GOOGLE_SHEET_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyWcBPs1Bql2Otw_3AXLJCiv2J5Y2CCvWg8smgu0o0YVngXCS41rLG8-o8D4NXDw1k3BQ/exec"; 
+
   const formConfig: GoogleFormConfig = {
     formUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSe0cKheNhIxDlwctfSqxyZUmkofxq7K0bPEHm_ct20yFGoadw/formResponse',
     nameEntryId: 'entry.307258376',
     scoreEntryId: 'entry.1105820957',
-    feedbackEntryId: 'entry.1196321293'
+    feedbackEntryId: 'entry.1196321293',
+    ratingEntryId: 'entry.1043069793'
   };
 
   // Modal State for Student Submission
@@ -118,6 +123,8 @@ const App: React.FC = () => {
     setScoreData(null);
     setStudentName("");
     setStudentFeedback("");
+    setStarRating(0);
+    setStarRating(0);
     setFormSubmitted(false);
 
     try {
@@ -177,26 +184,26 @@ const App: React.FC = () => {
         originalFileId: currentFileId,
         score: scoreData,
         feedback: studentFeedback,
+        starRating: starRating > 0 ? starRating : undefined,
         userAnswers: userAnswers, // Include detailed answers
         timestamp: Date.now()
       };
 
       // Submit to Google Form first
-      await submitToGoogleForm(submissionData, formConfig);
+      // await submitToGoogleForm(submissionData, formConfig);
       
-      // Also save detailed submission to Drive
-      try {
-        const fileName = `RESULT_${studentName.trim()}_${Date.now()}.json`;
-        await uploadToDrive(submissionData, fileName);
-      } catch (driveError: any) {
-        // Log error but don't fail the submission
-        console.error("Failed to save to Drive:", driveError);
-        // Still show success message since Google Form submission succeeded
+      // Submit to Google Sheet via Apps Script
+      if (GOOGLE_SHEET_SCRIPT_URL && !GOOGLE_SHEET_SCRIPT_URL.includes('AKfycbz_XXXXXXXXX')) {
+        await submitToGoogleSheet(submissionData, GOOGLE_SHEET_SCRIPT_URL);
+      } else {
+        // Fallback to Google Form if Script URL is not set
+        console.warn("Script URL not set, falling back to Google Form (no detailed answers saved)");
+        await submitToGoogleForm(submissionData, formConfig);
       }
       
       setFormSubmitted(true);
       setShowSaveModal(false); 
-      alert("Nộp bài thành công! Giáo viên đã nhận được kết quả và đáp án chi tiết.");
+      alert("Nộp bài thành công! Giáo viên đã nhận được kết quả.");
     } catch (e: any) {
       alert("Lỗi khi nộp bài: " + (e.message || "Unknown error"));
     } finally {
@@ -548,6 +555,42 @@ const App: React.FC = () => {
                       />
                     </div>
                     
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Đánh giá bài tập</label>
+                      <div className="flex items-center gap-2 justify-center py-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setStarRating(star)}
+                            className={`transition-all transform hover:scale-110 active:scale-95 ${
+                              star <= starRating
+                                ? 'text-yellow-400'
+                                : 'text-slate-300 hover:text-yellow-300'
+                            }`}
+                          >
+                            <svg
+                              className="w-8 h-8"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          </button>
+                        ))}
+                      </div>
+                      {starRating > 0 && (
+                        <p className="text-xs text-center text-slate-500 mt-1">
+                          {starRating === 5 && '⭐ Rất tốt!'}
+                          {starRating === 4 && '👍 Tốt!'}
+                          {starRating === 3 && '😊 Ổn'}
+                          {starRating === 2 && '😐 Cần cải thiện'}
+                          {starRating === 1 && '😞 Không hài lòng'}
+                        </p>
+                      )}
+                    </div>
+
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Feedback / Cảm nhận của bạn</label>
                       <textarea 
