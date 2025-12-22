@@ -364,11 +364,30 @@ export const generateExercises = async (
     - Question Count per Section: ${prefs.questionCount}
     - Required Section Types: ${prefs.selectedTypes.join(", ")}
     
+    Cohesion & Flow Strategy (CRITICAL):
+    - Treat this set of exercises as a cohesive homework assignment revolving around the Topic: "${prefs.topic || "General"}".
+    - Step 1: Establish a specific context or mini-story related to the Topic (e.g., if Topic is "Travel", the context could be "A family planning a summer trip to Japan").
+    - Step 2: Use this specific context across ALL sections.
+      - **Vocabulary:** Introduce words relevant to this specific context.
+      - **Reading:** Write a passage about this specific context, using the introduced vocabulary.
+      - **Listening:** Create scenes/dialogues within this same context.
+      - **Grammar:** Use sentences that fit this context (not random sentences).
+      - **Speaking:** Practice phrases useful in this context.
+    - Reinforcement: Recycle the target vocabulary and grammar points across different sections to reinforce learning.
+
     IMPORTANT: 
     - Create EXACTLY ONE section for EACH selected exercise type.
     - For example, if "Speaking & Pronunciation" is selected, create only 1 Speaking section with ${prefs.questionCount} questions.
     - ${prefs.level ? `Ensure ALL exercises are appropriate for ${prefs.level} level: vocabulary difficulty, grammar complexity, reading passage complexity, and speaking phrases should match this level.` : ''}
     
+    For 'Grammar' sections:
+      - Create sentences with a blank to fill in (e.g., "She ___ to the store yesterday.").
+      - 'correctAnswer' is the word/phrase that fills the blank correctly.
+      - 'options' MUST include 3 distractors that are the SAME PART OF SPEECH as the correct answer.
+      - CRITICAL: Do NOT use random words for options. If the answer is a verb, all options must be verbs. If the answer is a preposition, all options must be prepositions.
+      - Distractors should test common grammar mistakes (e.g., wrong tense: "go/went/gone", wrong form: "good/well", similar words).
+      - Ensure the sentence has enough context to determine the correct answer unambiguously.
+
     For 'Listening Comprehension' sections (TOEIC Part 1 style):
       - Each question should have an image showing a simple, clear scene (people, objects, actions).
       - The 'correctAnswer' must be EXACTLY one of the options you provide. It must match word-for-word with one option in the 'options' array.
