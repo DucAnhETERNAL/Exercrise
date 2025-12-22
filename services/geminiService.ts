@@ -400,12 +400,22 @@ export const generateExercises = async (
       - The image will be auto-generated based on the correctAnswer.
       - DO NOT include 'contextText' for Listening sections (each question is independent).
     
-    For 'Reading Comprehension' sections, create a passage in the 'contextText' field.
+    For 'Reading Comprehension' sections:
+      - Create a cohesive passage in the 'contextText' field that relates to the established context/story.
+      - The passage should be appropriate for the CEFR level and incorporate the target vocabulary when possible.
+      - Each question should test comprehension of the passage (main ideas, details, inferences, vocabulary in context).
+      - 'questionText' should be a clear question about the passage (e.g., "What is the main idea of the passage?" or "According to the passage, why did...?").
+      - Provide 4 options for each question. The 'correctAnswer' must be EXACTLY one of the options (word-for-word match).
+      - Distractors should be plausible but clearly wrong based on the passage content.
+      - Ensure questions can be answered by reading the passage (not requiring outside knowledge).
     
     For 'Vocabulary & Image Matching' sections:
       - The 'correctAnswer' must be a concrete noun, object, or action that can be easily visualized.
       - The 'questionText' should be like "Choose the word that matches the image" or "What does this picture show?".
-      - Provide 3 distractors in 'options'.
+      - Provide 4 options total: the correct answer plus 3 distractors.
+      - IMPORTANT: The 'correctAnswer' must be EXACTLY identical to one of the 4 options you provide (same text, word-for-word match).
+      - Distractors should be related words (similar meaning, same category) but clearly different from the correct answer.
+      - All options should be single words or short phrases (1-3 words max).
       - The image will be auto-generated based on the correctAnswer.
     
     For 'Speaking & Pronunciation' sections:
@@ -451,7 +461,7 @@ export const generateExercises = async (
                 type: Type.OBJECT,
                 properties: {
                   questionText: { type: Type.STRING },
-                  imageDescription: { type: Type.STRING, description: "For listening exercises: description of the image that will be read aloud" },
+                  imageDescription: { type: Type.STRING, description: "For listening exercises: visual description of the image scene for generating the image only. This will NOT be read aloud." },
                   options: { 
                     type: Type.ARRAY, 
                     items: { type: Type.STRING },
@@ -504,15 +514,23 @@ export const generateExercises = async (
         content = { sections: [] };
     }
 
-    // Clean up: Remove contextText from Listening sections (legacy format)
-    // Also validate that correctAnswer matches one of the options for Listening
+    // Clean up and validate: Remove contextText from Listening sections (legacy format)
+    // Validate that correctAnswer matches one of the options for multiple choice sections
     content.sections.forEach(section => {
       if (section.type === ExerciseType.LISTENING && section.contextText) {
         delete section.contextText;
       }
       
-      // Validate Listening exercises: correctAnswer must match one of the options
-      if (section.type === ExerciseType.LISTENING && Array.isArray(section.questions)) {
+      // Validate multiple choice exercises: correctAnswer must match one of the options
+      // This applies to LISTENING, READING, VOCABULARY, and GRAMMAR (all have options)
+      const needsValidation = [
+        ExerciseType.LISTENING,
+        ExerciseType.READING,
+        ExerciseType.VOCABULARY,
+        ExerciseType.GRAMMAR
+      ].includes(section.type);
+      
+      if (needsValidation && Array.isArray(section.questions)) {
         section.questions.forEach((question, qIdx) => {
           if (question.options && question.options.length > 0 && question.correctAnswer) {
             const normalize = (s: string) => s.trim().toLowerCase();
@@ -528,11 +546,11 @@ export const generateExercises = async (
               
               if (closestMatch) {
                 // Update correctAnswer to match the option exactly
-                console.warn(`Listening question ${qIdx}: correctAnswer "${question.correctAnswer}" adjusted to match option "${closestMatch}"`);
+                console.warn(`${section.type} question ${qIdx}: correctAnswer "${question.correctAnswer}" adjusted to match option "${closestMatch}"`);
                 question.correctAnswer = closestMatch;
               } else {
                 // If still no match, use the first option as fallback (should not happen with improved prompt)
-                console.warn(`Listening question ${qIdx}: correctAnswer "${question.correctAnswer}" does not match any option. Using first option as fallback.`);
+                console.warn(`${section.type} question ${qIdx}: correctAnswer "${question.correctAnswer}" does not match any option. Using first option as fallback.`);
                 question.correctAnswer = question.options[0];
               }
             } else {
