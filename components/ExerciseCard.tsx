@@ -160,9 +160,35 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
       .toLowerCase();
   };
 
+  // Helper function to check if answers are equivalent (matches logic in App.tsx)
+  const areEquivalent = (user: string | undefined, correct: string | undefined): boolean => {
+    const u = normalizeAnswer(user);
+    const c = normalizeAnswer(correct);
+    if (!u || !c) return false;
+    if (u === c) return true;
+    // Handle cases where one answer is a prefix of the other
+    // e.g., "a boy looking up" vs "a boy looking up at a kite"
+    if (c.startsWith(u) || u.startsWith(c)) return true;
+    // Handle cases where answers are semantically equivalent but use different wording
+    // e.g., "a teacher in a room" vs "a teacher in a class room"
+    // Check if both contain the same key words (ignoring articles and prepositions)
+    const keyWordsU = u.split(/\s+/).filter(w => !['a', 'an', 'the', 'in', 'on', 'at', 'with'].includes(w));
+    const keyWordsC = c.split(/\s+/).filter(w => !['a', 'an', 'the', 'in', 'on', 'at', 'with'].includes(w));
+    // If most key words match, consider them equivalent
+    if (keyWordsU.length > 0 && keyWordsC.length > 0) {
+      const matchingWords = keyWordsU.filter(w => keyWordsC.includes(w));
+      const minLength = Math.min(keyWordsU.length, keyWordsC.length);
+      // If at least 80% of key words match, consider equivalent
+      if (minLength > 0 && matchingWords.length >= Math.ceil(minLength * 0.8)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const normalizedUser = normalizeAnswer(userSelected);
   const normalizedCorrect = normalizeAnswer(question?.correctAnswer);
-  const isCorrect = normalizedUser !== '' && normalizedUser === normalizedCorrect;
+  const isCorrect = normalizedUser !== '' && areEquivalent(userSelected, question?.correctAnswer);
   const isAnswered = userSelected !== undefined && userSelected !== '';
   const isListening = sectionType === ExerciseType.LISTENING;
   const audioRef = useRef<HTMLAudioElement | null>(null);

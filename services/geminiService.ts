@@ -371,10 +371,11 @@ export const generateExercises = async (
     
     For 'Listening Comprehension' sections (TOEIC Part 1 style):
       - Each question should have an image showing a simple, clear scene (people, objects, actions).
-      - The 'correctAnswer' must be a concrete visual scene that can be drawn (e.g., "A man riding a bicycle", "People sitting in a meeting room").
+      - The 'correctAnswer' must be EXACTLY one of the options you provide. It must match word-for-word with one option in the 'options' array.
       - In 'imageDescription', provide a SHORT and CONCISE description (1-2 sentences max, suitable for homework) of the image scene that will be read aloud to students. Keep it simple and clear.
       - The 'questionText' should be simple like "What do you see in this picture?" or "Listen and choose the correct description".
       - Provide 4 SHORT options (each 3-7 words) describing different scenarios. Only one matches the image.
+      - IMPORTANT: The 'correctAnswer' must be EXACTLY identical to one of the 4 options you provide (same text, word-for-word match).
       - Keep options concise for easy listening comprehension in homework setting.
       - The image will be auto-generated based on the correctAnswer.
       - DO NOT include 'contextText' for Listening sections (each question is independent).
@@ -484,9 +485,42 @@ export const generateExercises = async (
     }
 
     // Clean up: Remove contextText from Listening sections (legacy format)
+    // Also validate that correctAnswer matches one of the options for Listening
     content.sections.forEach(section => {
       if (section.type === ExerciseType.LISTENING && section.contextText) {
         delete section.contextText;
+      }
+      
+      // Validate Listening exercises: correctAnswer must match one of the options
+      if (section.type === ExerciseType.LISTENING && Array.isArray(section.questions)) {
+        section.questions.forEach((question, qIdx) => {
+          if (question.options && question.options.length > 0 && question.correctAnswer) {
+            const normalize = (s: string) => s.trim().toLowerCase();
+            const normalizedCorrect = normalize(question.correctAnswer);
+            const matchingOption = question.options.find(opt => normalize(opt) === normalizedCorrect);
+            
+            if (!matchingOption) {
+              // If no exact match found, try to find the closest match using startsWith
+              const closestMatch = question.options.find(opt => 
+                normalize(opt).startsWith(normalizedCorrect) || 
+                normalizedCorrect.startsWith(normalize(opt))
+              );
+              
+              if (closestMatch) {
+                // Update correctAnswer to match the option exactly
+                console.warn(`Listening question ${qIdx}: correctAnswer "${question.correctAnswer}" adjusted to match option "${closestMatch}"`);
+                question.correctAnswer = closestMatch;
+              } else {
+                // If still no match, use the first option as fallback (should not happen with improved prompt)
+                console.warn(`Listening question ${qIdx}: correctAnswer "${question.correctAnswer}" does not match any option. Using first option as fallback.`);
+                question.correctAnswer = question.options[0];
+              }
+            } else {
+              // Ensure exact match (use the option text exactly as it appears)
+              question.correctAnswer = matchingOption;
+            }
+          }
+        });
       }
     });
 
@@ -543,10 +577,21 @@ export const generateExercises = async (
           // Clear any existing audio data first to prevent stale data
           question.audioData = undefined;
           
-          // Build the audio text: question + options
-          let audioText = question.questionText;
+          // Build the audio text: imageDescription (main content) + question + options
+          // For Listening exercises, the imageDescription describes what students should hear
+          let audioText = '';
           
-          // Add options with letters (A, B, C, D)
+          // First, add the image description (this is what describes the scene)
+          if (question.imageDescription) {
+            audioText = question.imageDescription;
+          }
+          
+          // Then add the question text
+          if (question.questionText) {
+            audioText += (audioText ? '. ' : '') + question.questionText;
+          }
+          
+          // Finally, add options with letters (A, B, C, D)
           if (question.options && question.options.length > 0) {
             question.options.forEach((opt: string, i: number) => {
               const letter = String.fromCharCode(65 + i);
