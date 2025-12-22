@@ -348,10 +348,10 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
                   src={getAudioUrl()}
                   preload="metadata"
                 >
-                  Trình duyệt của bạn không hỗ trợ audio player.
+                  Your browser does not support the audio element.
                 </audio>
                 <div className="mt-2 text-xs text-slate-500 text-center">
-                  🎧 Có thể tua, phát lại nhiều lần
+                  🎧 You can replay the audio multiple times
                 </div>
               </div>
             </div>
@@ -361,7 +361,7 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
           {isListening && !question.audioData && (
             <div className="mb-6 flex justify-center">
               <div className="text-sm text-slate-500 bg-yellow-50 px-4 py-2 rounded-lg border border-yellow-200">
-                ⚠️ Audio chưa được tạo cho câu hỏi này
+                ⚠️ Audio not generated for this question
               </div>
             </div>
           )}
@@ -476,7 +476,7 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
                <div>
                  <span className="font-bold block mb-1">
                     {isSubmitted 
-                      ? (!isAnswered ? 'Chưa trả lời. ' : (!isCorrect ? 'Incorrect. ' : ''))
+                      ? (!isAnswered ? 'Not answered. ' : (!isCorrect ? 'Incorrect. ' : ''))
                       : ''
                     }
                     Correct Answer: {question.correctAnswer}
@@ -759,15 +759,15 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
                       <div className="text-2xl font-bold text-slate-800">{feedback.accuracyScore.toFixed(1)}</div>
                     </div>
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
-                      <div className="text-sm text-slate-500 font-medium mb-1">Độ trôi chảy</div>
+                      <div className="text-sm text-slate-500 font-medium mb-1">Fluency</div>
                       <div className="text-2xl font-bold text-antoree-green">{feedback.fluencyScore.toFixed(1)}</div>
                     </div>
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
-                      <div className="text-sm text-slate-500 font-medium mb-1">Độ hoàn thiện</div>
+                      <div className="text-sm text-slate-500 font-medium mb-1">Completeness</div>
                       <div className="text-2xl font-bold text-slate-800">{feedback.completenessScore.toFixed(1)}</div>
                     </div>
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
-                      <div className="text-sm text-slate-500 font-medium mb-1">Phát âm</div>
+                      <div className="text-sm text-slate-500 font-medium mb-1">Pronunciation</div>
                       <div className="text-2xl font-bold text-antoree-green">{feedback.pronunciationScore.toFixed(1)}</div>
                     </div>
                   </div>
@@ -775,24 +775,24 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
 
                 <div className="flex justify-center">
                   <button 
-                    onClick={() => setShowDetails(!showDetails)}
-                    className="text-sm text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors"
-                  >
-                    {showDetails ? (
-                      <>Ẩn chi tiết <span className="text-xs">▲</span></>
-                    ) : (
-                      <>Xem chi tiết <span className="text-xs">▼</span></>
-                    )}
-                  </button>
-                </div>
+                  onClick={() => setShowDetails(!showDetails)}
+                  className="text-sm text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors"
+                >
+                  {showDetails ? (
+                    <>Hide details <span className="text-xs">▲</span></>
+                  ) : (
+                    <>View details <span className="text-xs">▼</span></>
+                  )}
+                </button>
               </div>
+            </div>
 
-              {/* Word-by-Word Feedback with Colors */}
-              {showDetails && feedback.wordFeedback && feedback.wordFeedback.length > 0 && (
-                <div className="bg-white rounded-xl border border-slate-200 p-6">
-                  <div className="text-center mb-4">
-                    <p className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">Chi tiết từng từ</p>
-                    <div className="text-2xl font-bold leading-relaxed flex flex-wrap justify-center gap-2">
+            {/* Word-by-Word Feedback with Colors */}
+            {showDetails && feedback.wordFeedback && feedback.wordFeedback.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 p-6">
+                <div className="text-center mb-4">
+                  <p className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">Word-by-word analysis</p>
+                  <div className="text-2xl font-bold leading-relaxed flex flex-wrap justify-center gap-2">
                       {feedback.wordFeedback.map((word, idx) => {
                         let colorClass = '';
                         if (word.status === 'correct') {
@@ -816,33 +816,33 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
                     </div>
                   </div>
 
-                  {/* Legend */}
-                  <div className="flex justify-center gap-4 text-xs font-medium text-slate-500 mt-4 pt-4 border-t border-slate-100">
-                    <div className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-green-600"></span> 
-                      <span>Tốt (≥80)</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-yellow-500"></span> 
-                      <span>Khá (60-79)</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-red-500"></span> 
-                      <span>Cần cải thiện (&lt;60)</span>
-                    </div>
+                {/* Legend */}
+                <div className="flex justify-center gap-4 text-xs font-medium text-slate-500 mt-4 pt-4 border-t border-slate-100">
+                  <div className="flex items-center gap-1">
+                    <span className="w-3 h-3 rounded-full bg-green-600"></span> 
+                    <span>Good (≥80)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-3 h-3 rounded-full bg-yellow-500"></span> 
+                    <span>Fair (60-79)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-3 h-3 rounded-full bg-red-500"></span> 
+                    <span>Needs improvement (&lt;60)</span>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Playback */}
-              {recordedBlob && (
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <div className="font-bold text-slate-700 mb-2">
-                    Nghe lại bản ghi của bạn:
-                  </div>
-                  <audio controls className="w-full" src={URL.createObjectURL(recordedBlob)} />
+            {/* Playback */}
+            {recordedBlob && (
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div className="font-bold text-slate-700 mb-2">
+                  Listen to your recording:
                 </div>
-              )}
+                <audio controls className="w-full" src={URL.createObjectURL(recordedBlob)} />
+              </div>
+            )}
             </div>
           )}
 
