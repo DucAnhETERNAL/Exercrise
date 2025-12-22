@@ -391,7 +391,7 @@ export const generateExercises = async (
     For 'Listening Comprehension' sections (TOEIC Part 1 style):
       - Each question should have an image showing a simple, clear scene (people, objects, actions).
       - The 'correctAnswer' must be EXACTLY one of the options you provide. It must match word-for-word with one option in the 'options' array.
-      - In 'imageDescription', provide a SHORT and CONCISE description (1-2 sentences max, suitable for homework) of the image scene that will be read aloud to students. Keep it simple and clear.
+      - In 'imageDescription', provide a visual description of the scene solely for generating the image. This will NOT be read aloud.
       - The 'questionText' should be simple like "What do you see in this picture?" or "Listen and choose the correct description".
       - Provide 4 SHORT options (each 3-7 words) describing different scenarios. Only one matches the image.
       - IMPORTANT: The 'correctAnswer' must be EXACTLY identical to one of the 4 options you provide (same text, word-for-word match).
@@ -596,25 +596,22 @@ export const generateExercises = async (
           // Clear any existing audio data first to prevent stale data
           question.audioData = undefined;
           
-          // Build the audio text: imageDescription (main content) + question + options
-          // For Listening exercises, the imageDescription describes what students should hear
+          // Build the audio text: question + options ONLY
+          // We intentionally EXCLUDE imageDescription to prevent spoilers and reduce noise
           let audioText = '';
           
-          // First, add the image description (this is what describes the scene)
-          if (question.imageDescription) {
-            audioText = question.imageDescription;
-          }
-          
-          // Then add the question text
+          // Add the question text
           if (question.questionText) {
-            audioText += (audioText ? '. ' : '') + question.questionText;
+            audioText = question.questionText;
           }
           
-          // Finally, add options with letters (A, B, C, D)
+          // Add options with letters (A, B, C, D)
           if (question.options && question.options.length > 0) {
             question.options.forEach((opt: string, i: number) => {
               const letter = String.fromCharCode(65 + i);
-              audioText += `.  ${letter}, ${opt}`;
+              // Add pause before options if there is question text
+              const prefix = audioText ? '.  ' : '';
+              audioText += `${prefix}${letter}. ${opt}`;
             });
           }
           
