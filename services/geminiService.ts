@@ -386,7 +386,8 @@ export const generateExercises = async (
       - 'options' MUST include 3 distractors that are the SAME PART OF SPEECH as the correct answer.
       - CRITICAL: Do NOT use random words for options. If the answer is a verb, all options must be verbs. If the answer is a preposition, all options must be prepositions.
       - Distractors should test common grammar mistakes (e.g., wrong tense: "go/went/gone", wrong form: "good/well", similar words).
-      - Ensure the sentence has enough context to determine the correct answer unambiguously.
+      - Ensure the sentence provides CLEAR context clues (time markers, subject-verb agreement cues, logical meaning) so that ONLY ONE answer is logically and grammatically correct.
+      - Avoid ambiguous sentences where multiple options could technically fit (e.g., instead of "He ___ run", use "He ___ run fast when he was young" to force 'could').
 
     For 'Listening Comprehension' sections (TOEIC Part 1 style):
       - Each question should have an image showing a simple, clear scene (people, objects, actions).
@@ -598,22 +599,23 @@ export const generateExercises = async (
           
           // Build the audio text: question + options ONLY
           // We intentionally EXCLUDE imageDescription to prevent spoilers and reduce noise
-          let audioText = '';
+          let parts: string[] = [];
           
           // Add the question text
           if (question.questionText) {
-            audioText = question.questionText;
+            parts.push(question.questionText);
           }
           
           // Add options with letters (A, B, C, D)
           if (question.options && question.options.length > 0) {
             question.options.forEach((opt: string, i: number) => {
               const letter = String.fromCharCode(65 + i);
-              // Add pause before options if there is question text
-              const prefix = audioText ? '.  ' : '';
-              audioText += `${prefix}${letter}. ${opt}`;
+              parts.push(`${letter}. ${opt}`);
             });
           }
+          
+          // Join with pauses
+          const audioText = parts.join('.  ');
           
           audioTasks.push({ question, audioText });
         });
