@@ -25,6 +25,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const [activeAudioIndex, setActiveAudioIndex] = useState<number | null>(null);
   
   // Icons mapping
   const getIcon = () => {
@@ -121,6 +122,8 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
                 onSelect={(opt) => onAnswerSelect(sectionIndex, realIndex, opt)}
                 showAnswer={showAnswersGlobal} 
                 isSubmitted={isSubmitted}
+                activeAudioIndex={activeAudioIndex}
+                setActiveAudioIndex={setActiveAudioIndex}
               />
             );
           })}
@@ -139,6 +142,8 @@ interface QuestionItemProps {
   onSelect: (option: string) => void;
   showAnswer: boolean;
   isSubmitted: boolean;
+  activeAudioIndex?: number | null;
+  setActiveAudioIndex?: (index: number | null) => void;
 }
 
 const QuestionItem: React.FC<QuestionItemProps> = ({ 
@@ -148,7 +153,9 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
   userSelected, 
   onSelect, 
   showAnswer,
-  isSubmitted 
+  isSubmitted,
+  activeAudioIndex,
+  setActiveAudioIndex
 }) => {
   const normalizeAnswer = (s: string | undefined): string => {
     if (!s) return '';
@@ -204,6 +211,9 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
     const handlePlay = () => {
       wasPlayingRef.current = true;
       shouldResumeRef.current = false;
+      if (setActiveAudioIndex) {
+        setActiveAudioIndex(index);
+      }
     };
 
     const handlePause = () => {
@@ -227,7 +237,16 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
     };
-  }, [isListening]);
+  }, [isListening, index, setActiveAudioIndex]);
+
+  // Handle stopping audio when another audio starts
+  useEffect(() => {
+    if (activeAudioIndex !== undefined && activeAudioIndex !== index && audioRef.current && !audioRef.current.paused) {
+      wasPlayingRef.current = false;
+      shouldResumeRef.current = false;
+      audioRef.current.pause();
+    }
+  }, [activeAudioIndex, index]);
 
   // Speak option text when clicked (only for non-listening exercises)
   const speakOption = (text: string) => {

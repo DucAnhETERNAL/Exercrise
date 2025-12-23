@@ -207,9 +207,31 @@ export const analyzeVideoForPreferences = async (
       Your goal is to extract the MAXIMUM amount of learning data possible from these visuals, with special focus on accurately determining the student's CEFR level.
 
       Please perform a comprehensive analysis:
-      1. **Vocabulary Extraction (Critical):** Scan all text visible on the slides/whiteboard (OCR). Extract a COMPREHENSIVE list of vocabulary (aim for 30-50+ words/phrases if available). Focus on the specific terminology used in the lesson, not just basic words.
-      2. **Grammar Identification:** Look at the sentence structures shown on the slides. Identify the specific grammar points being taught or used (e.g., "Third Conditional," "Passive Voice with Modals," "Advanced Relative Clauses"). Be precise.
-      3. **Topic:** Define the specific academic or conversational topic.
+      1. **Topic Extraction (CRITICAL - Be Specific):**
+         - Identify the SPECIFIC, CONCRETE topic being taught (e.g., "Morning routines and daily activities", "Describing family members", "Planning a vacation trip to Paris")
+         - DO NOT use generic category names like "Basic abilities" or "Everyday objects"
+         - Instead, describe what specific situation, context, or theme the lesson focuses on
+         - If it's about abilities, specify WHAT abilities (e.g., "Physical abilities: running, jumping, climbing")
+         - If it's about objects, specify the context (e.g., "Classroom objects: desk, chair, whiteboard")
+      
+      2. **Vocabulary Extraction (Critical - Content Words Only):**
+         - Scan all text visible on the slides/whiteboard (OCR)
+         - Extract ONLY CONTENT WORDS: nouns, meaningful verbs, adjectives, and adverbs
+         - EXCLUDE all function words: pronouns (I, you, me, that), articles (a, an, the), prepositions (in, on, at, up), modal verbs (can, should, must), conjunctions (and, but, or), auxiliary verbs (is, are, was), contractions (I'm, what's, that's)
+         - Focus on SUBSTANTIVE vocabulary that carries meaning: objects, actions, qualities, concepts
+         - Prioritize topic-specific terminology over generic words
+         - Aim for 20-40 meaningful content words/phrases
+         - Examples of GOOD vocabulary: "airplane, passport, luggage, departure, arrival, reservation, itinerary"
+         - Examples of BAD vocabulary to exclude: "can, I, you, me, that, the, is, are, what's, I'm"
+      
+      3. **Grammar Identification (Be Precise and Specific):**
+         - Identify the SPECIFIC grammar structures being taught or prominently used
+         - Be precise: Instead of "Modal verb 'can'", specify "Modal verb 'can' for expressing ability with physical actions"
+         - Instead of "imperative sentences", specify "Imperative sentences for giving commands and instructions"
+         - List 2-4 specific grammar points that are the FOCUS of the lesson
+         - Format: "Grammar point 1: [specific structure] for [purpose/use]. Grammar point 2: [specific structure] for [purpose/use]."
+         - DO NOT list every grammar structure that happens to appear - only the ones being actively taught
+      
       4. **Level Assessment (CRITICAL - Analyze thoroughly):** 
          - Analyze the complexity of vocabulary used (basic everyday words = A1/A2, academic/professional terms = B2/C1/C2)
          - Examine sentence structures (simple sentences = A1/A2, complex clauses and advanced grammar = B2/C1/C2)
@@ -219,7 +241,7 @@ export const analyzeVideoForPreferences = async (
          - Determine the most appropriate CEFR level: A1 (Beginner), A2 (Elementary), B1 (Intermediate), B2 (Upper-Intermediate), C1 (Advanced), C2 (Proficient)
          - Be precise: if the content shows intermediate-level material, choose B1; if it shows advanced academic content, choose C1 or C2
 
-      Return a JSON object matching the schema. For 'vocabulary', provide a comma-separated string of the extensive list.
+      Return a JSON object matching the schema. For 'vocabulary', provide ONLY content words as a comma-separated string.
       For 'level', provide the most accurate CEFR level based on your comprehensive analysis.
     `;
 
@@ -227,9 +249,18 @@ export const analyzeVideoForPreferences = async (
       type: Type.OBJECT,
       properties: {
         level: { type: Type.STRING, enum: Object.values(CefrLevel) },
-        topic: { type: Type.STRING },
-        vocabulary: { type: Type.STRING, description: "A comprehensive comma-separated list of 30-50 words found in the video." },
-        grammarFocus: { type: Type.STRING, description: "Precise grammar structures identified from the text on slides." },
+        topic: { 
+          type: Type.STRING, 
+          description: "A specific, concrete topic (e.g., 'Morning routines and daily activities', NOT generic categories like 'Basic abilities')" 
+        },
+        vocabulary: { 
+          type: Type.STRING, 
+          description: "Comma-separated list of 20-40 CONTENT WORDS ONLY (nouns, meaningful verbs, adjectives, adverbs). EXCLUDE function words (pronouns, articles, prepositions, modals, conjunctions, auxiliaries, contractions). Focus on substantive vocabulary that carries meaning." 
+        },
+        grammarFocus: { 
+          type: Type.STRING, 
+          description: "2-4 specific grammar structures being actively taught, with their purpose/use. Format: 'Structure 1: [name] for [purpose]. Structure 2: [name] for [purpose].' Be precise and specific, not generic lists." 
+        },
       },
       required: ["level", "topic", "vocabulary", "grammarFocus"]
     };
@@ -339,6 +370,15 @@ const selectRandomVocabulary = (vocabularyList: string, count: number = 15): str
   return shuffled.slice(0, count).join(', ');
 };
 
+// Helper to shuffle array (Fisher-Yates)
+const shuffleArray = (array: string[]) => {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+};
+
 /**
  * Generates the text-based exercises using a structured JSON schema.
  */
@@ -354,7 +394,8 @@ export const generateExercises = async (
   const selectedVocabulary = selectRandomVocabulary(prefs.vocabulary || "", 15);
 
   const prompt = `
-    Create a set of English exercises for daily assessment.
+    Role: You are an expert ESL (English as a Second Language) Curriculum Designer.
+    Task: Create a structured, pedagogical Homework Assignment based on the provided context.
     
     Context & Requirements:
     - CEFR Level: ${prefs.level ? `${prefs.level} - Create exercises appropriate for this level. Adjust vocabulary complexity, sentence structures, and content depth accordingly.` : "Not specified - Use intermediate level (B1-B2) as default"}
@@ -364,6 +405,12 @@ export const generateExercises = async (
     - Question Count per Section: ${prefs.questionCount}
     - Required Section Types: ${prefs.selectedTypes.join(", ")}
     
+    Pedagogical Instructions:
+    1. **Distractor Quality (CRITICAL):** In multiple-choice questions, distractors must be "smart". They should represent common learner mistakes (e.g., L1 interference, false cognates, or incorrect tense application) relevant to the ${prefs.level} level.
+    2. **Scaffolding:** Arrange questions from simple recognition (Vocabulary) to complex application (Reading/Speaking).
+    3. **Natural Language:** Ensure the "contextText" for Reading sounds like a real-world text (email, blog post, news snippet), not just a list of sentences.
+    4. **Image Descriptions:** For Listening, ensure 'imageDescription' focuses on high-contrast, clear actions that can be distinguished easily by an Image Gen model.
+
     Cohesion & Flow Strategy (CRITICAL):
     - Treat this set of exercises as a cohesive homework assignment revolving around the Topic: "${prefs.topic || "General"}".
     - Step 1: Establish a specific context or mini-story related to the Topic (e.g., if Topic is "Travel", the context could be "A family planning a summer trip to Japan").
@@ -390,15 +437,16 @@ export const generateExercises = async (
       - Avoid ambiguous sentences where multiple options could technically fit (e.g., instead of "He ___ run", use "He ___ run fast when he was young" to force 'could').
 
     For 'Listening Comprehension' sections (TOEIC Part 1 style):
-      - Each question should have an image showing a simple, clear scene (people, objects, actions).
-      - The 'correctAnswer' must be EXACTLY one of the options you provide. It must match word-for-word with one option in the 'options' array.
+      - Each question should have an image showing a simple, clear scene related to the established context.
+      - The 'correctAnswer' must be EXACTLY one of the options you provide.
       - In 'imageDescription', provide a visual description of the scene solely for generating the image. This will NOT be read aloud.
       - The 'questionText' should be simple like "What do you see in this picture?" or "Listen and choose the correct description".
       - Provide 4 SHORT options (each 3-7 words) describing different scenarios. Only one matches the image.
-      - IMPORTANT: The 'correctAnswer' must be EXACTLY identical to one of the 4 options you provide (same text, word-for-word match).
-      - Keep options concise for easy listening comprehension in homework setting.
+      - IMPORTANT: The 'correctAnswer' must be EXACTLY identical to one of the 4 options you provide.
+      - Avoid using random names (e.g., "Leo", "Anna") unless they were introduced in the main context/story. Use generic subjects like "A man", "The woman", "A student" instead.
+      - Ensure options are plausible but clearly distinct (e.g., "A man is running" vs "A man is sitting").
       - The image will be auto-generated based on the correctAnswer.
-      - DO NOT include 'contextText' for Listening sections (each question is independent).
+      - DO NOT include 'contextText' for Listening sections.
     
     For 'Reading Comprehension' sections:
       - Create a cohesive passage in the 'contextText' field that relates to the established context/story.
@@ -532,6 +580,11 @@ export const generateExercises = async (
       
       if (needsValidation && Array.isArray(section.questions)) {
         section.questions.forEach((question, qIdx) => {
+          // Shuffle options for LISTENING exercises
+          if (section.type === ExerciseType.LISTENING && question.options && question.options.length > 0) {
+            question.options = shuffleArray([...question.options]);
+          }
+
           if (question.options && question.options.length > 0 && question.correctAnswer) {
             const normalize = (s: string) => s.trim().toLowerCase();
             const normalizedCorrect = normalize(question.correctAnswer);
@@ -615,25 +668,44 @@ export const generateExercises = async (
           // Clear any existing audio data first to prevent stale data
           question.audioData = undefined;
           
-          // Build the audio text: question + options ONLY
-          // We intentionally EXCLUDE imageDescription to prevent spoilers and reduce noise
+          // Build the audio text: question + options
+          // Standardized format: "Question text. Option A: ... Option B: ..."
           let parts: string[] = [];
           
-          // Add the question text
+          // 1. Add the question text
           if (question.questionText) {
             parts.push(question.questionText);
+            // Add a pause after question
+            parts.push("..."); 
           }
           
-          // Add options with letters (A, B, C, D)
+          // 2. Add options with letters (A, B, C, D) corresponding to their SHUFFLED position
           if (question.options && question.options.length > 0) {
             question.options.forEach((opt: string, i: number) => {
-              const letter = String.fromCharCode(65 + i);
-              parts.push(`${letter}. ${opt}`);
+              const letter = String.fromCharCode(65 + i); // A, B, C, D
+              // Format: "A. [Option Text]"
+              parts.push(`${letter}. ${opt}.`); 
             });
+          } else {
+            console.warn(`Listening question missing options array or empty options`);
           }
           
-          // Join with pauses
-          const audioText = parts.join('.  ');
+          // Join with natural pauses
+          const audioText = parts.join(' ');
+          
+          // Validate audio text has sufficient content
+          // For a proper listening question, we need: questionText + at least 4 options
+          // Minimum expected: ~100 characters for a meaningful question with 4 short options
+          if (!question.options || question.options.length === 0) {
+            console.error(`Listening question missing options! Audio will be incomplete.`);
+          } else if (question.options.length < 4) {
+            console.warn(`Listening question has only ${question.options.length} options, expected 4.`);
+          }
+          
+          if (audioText.length < 100) {
+            console.warn(`Audio text may be too short (${audioText.length} chars) for question. Expected ~100+ chars for proper question + 4 options.`);
+            console.warn(`Audio text content: "${audioText}"`);
+          }
           
           audioTasks.push({ question, audioText });
         });
@@ -655,20 +727,37 @@ export const generateExercises = async (
         // Generate audio with retry logic - ensure we get full audio
         let audioData: string | undefined = undefined;
         let retryCount = 0;
-        const maxRetries = 2;
+        const maxRetries = 3; // Increased retries
+        
+        // Log the audio text being generated for debugging
+        console.log(`Generating audio for Listening question ${i + 1}: "${audioText}" (${audioText.length} characters)`);
+        
+        // Estimate expected audio length: roughly 100 chars of text ≈ 10-15 seconds of speech
+        // Base64 encoding: ~1.3x the original audio size
+        // For 142-184 chars of text, expect ~15-20 seconds of speech ≈ 20,000-30,000 base64 chars minimum
+        const estimatedMinLength = Math.max(15000, audioText.length * 100); // Conservative estimate
         
         while (!audioData && retryCount <= maxRetries) {
           if (retryCount > 0) {
-            // Wait longer between retries
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Wait progressively longer between retries to give API time to recover
+            const waitTime = 3500 + (retryCount * 2000); // 3s, 5s, 7s
+            console.log(`Retrying audio generation for question ${i + 1}, attempt ${retryCount + 1}/${maxRetries}, waiting ${waitTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+          } else {
+            // Even for first attempt, add a small delay to ensure API is ready
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
           
           audioData = await generateAudioBase64(audioText);
           
-          // Validate audio data is not empty or too short (basic check)
-          if (audioData && audioData.length < 100) {
-            console.warn(`Audio data too short for question ${i}, retrying...`);
-            audioData = undefined;
+          // Validate audio data is not empty or too short
+          if (audioData) {
+            if (audioData.length < estimatedMinLength) {
+              console.warn(`Audio data too short for question ${i + 1}: ${audioData.length} chars, expected at least ${estimatedMinLength} chars (estimated from ${audioText.length} chars of text). Retrying...`);
+              audioData = undefined;
+            } else {
+              console.log(`✓ Audio generated successfully for question ${i + 1}: ${audioData.length} chars`);
+            }
           }
           
           retryCount++;
@@ -710,11 +799,19 @@ export const generateAudioBase64 = async (text: string): Promise<string | undefi
   const model = "gemini-2.5-flash-preview-tts";
 
   try {
+    // Ensure text is properly formatted with pauses
+    // Replace double periods with single period + space for better TTS parsing
+    const formattedText = text
+    .replace(/\.\.\./g, ' . ') // Replace "..." with period for natural pause
+    .replace(/([.?!])\s*/g, "$1 ") // Standardize sentence breaks
+    .replace(/([,])\s*/g, "$1 ")   // Standardize comma breaks
+    .trim();
     const response = await withRetry(
       () => ai.models.generateContent({
         model: model,
-        contents: [{ parts: [{ text }] }],
+        contents: [{ parts: [{ text: formattedText }] }],
         config: {
+          systemInstruction: { parts: [{ text: "You are a Text-to-Speech system. Your ONLY task is to read the provided text aloud naturally and clearly. Do NOT generate any text, analysis, or descriptions. Just generate the audio for the input text." }] },
           responseModalities: [Modality.AUDIO],
           speechConfig: {
             voiceConfig: {
@@ -723,12 +820,13 @@ export const generateAudioBase64 = async (text: string): Promise<string | undefi
           },
         },
       }),
-      3, // Increased retries from 2 to 3
+      2, // Fewer retries here since we handle retries in the caller
       "Audio generation"
     );
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) {
+      console.warn("No audio data returned from API");
       return undefined;
     }
 
