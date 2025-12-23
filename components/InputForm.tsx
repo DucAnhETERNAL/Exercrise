@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { CefrLevel, ExerciseType, UserPreferences, LoadingStatus } from '../types';
 import { Type, LayoutList, Hash, Video, Upload, Loader2, ChevronUp, ChevronDown } from 'lucide-react';
 import { analyzeVideoForPreferences } from '../services/geminiService';
+import { useAlert } from '../contexts/AlertContext';
 
 interface InputFormProps {
   preferences: UserPreferences;
@@ -12,6 +13,7 @@ interface InputFormProps {
 }
 
 const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, loadingStatus, onVideoAnalysisStatusChange }) => {
+  const { showAlert } = useAlert();
   const [analyzingVideo, setAnalyzingVideo] = useState(false);
   const [questionCountError, setQuestionCountError] = useState<string | null>(null);
   const [questionCountInput, setQuestionCountInput] = useState<string>(preferences.questionCount.toString());
@@ -136,7 +138,7 @@ const InputForm: React.FC<InputFormProps> = ({ preferences, onChange, onSubmit, 
       });
     } catch (error: any) {
       const errorMessage = error?.message || "Failed to analyze video";
-      alert(errorMessage + (errorMessage.includes("overloaded") ? "\n\nThe system will automatically retry. Please wait a moment and try again." : ""));
+      showAlert(errorMessage + (errorMessage.includes("overloaded") ? "\n\nHệ thống sẽ tự động thử lại. Vui lòng đợi một chút và thử lại." : ""), 'error');
     } finally {
       setAnalyzingVideo(false);
       if (onVideoAnalysisStatusChange) {

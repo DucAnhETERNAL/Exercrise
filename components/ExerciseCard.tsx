@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GeneratedSection, ExerciseType } from '../types';
 import { Volume2, CheckCircle2, XCircle, BookOpen, Brain, Mic, Image as ImageIcon, Mic2 } from 'lucide-react';
 import { evaluatePronunciation, PronunciationFeedback } from '../services/geminiService';
+import { useAlert } from '../contexts/AlertContext';
 
 interface ExerciseCardProps {
   section: GeneratedSection;
@@ -22,6 +23,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   isSubmitted,
   baseQuestionIndex = 0
 }) => {
+  const { showAlert } = useAlert();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -63,7 +65,7 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
     utterance.onerror = () => {
       setIsPlaying(false);
       setIsLoadingAudio(false);
-      alert("Could not generate audio at this time.");
+      showAlert("Không thể phát audio vào lúc này.", 'error');
     };
     
     setIsLoadingAudio(true);
@@ -529,6 +531,7 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
   showAnswer,
   isSubmitted
 }) => {
+  const { showAlert } = useAlert();
   const [isRecording, setIsRecording] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [feedback, setFeedback] = useState<PronunciationFeedback | null>(null);
@@ -540,6 +543,40 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
   
   // For sample audio using Web Speech API
   const [isPlayingSample, setIsPlayingSample] = useState(false);
+
+  // Load feedback from userAnswers when component mounts or userSelected changes
+  useEffect(() => {
+    if (userSelected) {
+      // Check if it's the format with full feedback: "SPEAKING_FEEDBACK:{json}"
+      if (userSelected.startsWith('SPEAKING_FEEDBACK:')) {
+        try {
+          const jsonStr = userSelected.replace('SPEAKING_FEEDBACK:', '');
+          const data = JSON.parse(jsonStr);
+          if (data.feedback) {
+            setFeedback(data.feedback);
+            // Always show details when submitted
+            if (isSubmitted) {
+              setShowDetails(true);
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse feedback data:', e);
+        }
+      } 
+      // Legacy format: "Score: 85" - try to preserve if we have feedback already
+      else if (userSelected.startsWith('Score: ')) {
+        // If we already have feedback, keep it. Otherwise, we can't restore full feedback from legacy format
+        // This is fine - the user will see the score at least
+      }
+    }
+  }, [userSelected, isSubmitted]);
+
+  // Ensure details are always shown when submitted
+  useEffect(() => {
+    if (isSubmitted && feedback) {
+      setShowDetails(true);
+    }
+  }, [isSubmitted, feedback]);
 
   // Add global event listeners for mouseup/touchend to stop recording
   React.useEffect(() => {
@@ -611,7 +648,7 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
       mediaRecorder.start();
       setIsRecording(true);
     } catch (error) {
-      alert('Không thể truy cập microphone. Vui lòng cho phép quyền truy cập.');
+      showAlert('Không thể truy cập microphone. Vui lòng cho phép quyền truy cập.', 'error');
     }
   };
 
@@ -640,10 +677,17 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
     try {
       const result = await evaluatePronunciation(blob, question.targetPhrase || question.correctAnswer);
       setFeedback(result);
-      // Mark as answered with the overall pronunciation score
-      onSelect(`Score: ${result.pronunciationScore}`);
+      setRecordedBlob(blob);
+      
+      // Save both score (for calculation) and full feedback data (for display after submission)
+      // Format: "SPEAKING_FEEDBACK:{json}" where json contains both score and feedback
+      const feedbackData = {
+        score: result.pronunciationScore,
+        feedback: result
+      };
+      onSelect(`SPEAKING_FEEDBACK:${JSON.stringify(feedbackData)}`);
     } catch (error) {
-      alert('Lỗi khi đánh giá phát âm. Vui lòng thử lại.');
+      showAlert('Lỗi khi đánh giá phát âm. Vui lòng thử lại.', 'error');
     } finally {
       setIsEvaluating(false);
     }
@@ -671,7 +715,7 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
     utterance.onend = () => setIsPlayingSample(false);
     utterance.onerror = () => {
       setIsPlayingSample(false);
-      alert("Không thể phát audio mẫu. Vui lòng kiểm tra trình duyệt có hỗ trợ Web Speech API.");
+      showAlert("Không thể phát audio mẫu. Vui lòng kiểm tra trình duyệt có hỗ trợ Web Speech API.", 'error');
     };
     
     // Speak the text
@@ -763,7 +807,7 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
             )}
           </div>
 
-          {/* Pronunciation Feedback - Redesigned */}
+          {/* Pronunciation Feedback - Redesigned - Always show when feedback exists or when submitted */}
           {feedback && (
             <div className="mt-4 space-y-6">
               {/* Main Score Card */}
@@ -771,7 +815,8 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
                 <h4 className="text-center font-bold text-slate-700 mb-4 text-lg">Điểm tổng</h4>
                 <div className="text-center text-5xl font-black text-antoree-green mb-8">{feedback.pronunciationScore.toFixed(1)}</div>
 
-                {showDetails && (
+                {/* Always show details when submitted, otherwise respect showDetails toggle */}
+                {(showDetails || isSubmitted) && (
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
                       <div className="text-sm text-slate-500 font-medium mb-1">Độ chính xác</div>
@@ -792,26 +837,29 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
                   </div>
                 )}
 
-                <div className="flex justify-center">
-                  <button 
-                  onClick={() => setShowDetails(!showDetails)}
-                  className="text-sm text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors"
-                >
-                  {showDetails ? (
-                    <>Hide details <span className="text-xs">▲</span></>
-                  ) : (
-                    <>View details <span className="text-xs">▼</span></>
-                  )}
-                </button>
+                {/* Only show toggle button when not submitted */}
+                {!isSubmitted && feedback && (
+                  <div className="flex justify-center">
+                    <button 
+                      onClick={() => setShowDetails(!showDetails)}
+                      className="text-sm text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors"
+                    >
+                      {showDetails ? (
+                        <>Hide details <span className="text-xs">▲</span></>
+                      ) : (
+                        <>View details <span className="text-xs">▼</span></>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
 
-            {/* Word-by-Word Feedback with Colors */}
-            {showDetails && feedback.wordFeedback && feedback.wordFeedback.length > 0 && (
-              <div className="bg-white rounded-xl border border-slate-200 p-6">
-                <div className="text-center mb-4">
-                  <p className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">Word-by-word analysis</p>
-                  <div className="text-2xl font-bold leading-relaxed flex flex-wrap justify-center gap-2">
+              {/* Word-by-Word Feedback with Colors - Always show when submitted */}
+              {(showDetails || isSubmitted) && feedback.wordFeedback && feedback.wordFeedback.length > 0 && (
+                <div className="bg-white rounded-xl border border-slate-200 p-6">
+                  <div className="text-center mb-4">
+                    <p className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">Word-by-word analysis</p>
+                    <div className="text-2xl font-bold leading-relaxed flex flex-wrap justify-center gap-2">
                       {feedback.wordFeedback.map((word, idx) => {
                         let colorClass = '';
                         if (word.status === 'correct') {
@@ -835,33 +883,33 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
                     </div>
                   </div>
 
-                {/* Legend */}
-                <div className="flex justify-center gap-4 text-xs font-medium text-slate-500 mt-4 pt-4 border-t border-slate-100">
-                  <div className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded-full bg-green-600"></span> 
-                    <span>Good (≥80)</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded-full bg-yellow-500"></span> 
-                    <span>Fair (60-79)</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded-full bg-red-500"></span> 
-                    <span>Needs improvement (&lt;60)</span>
+                  {/* Legend */}
+                  <div className="flex justify-center gap-4 text-xs font-medium text-slate-500 mt-4 pt-4 border-t border-slate-100">
+                    <div className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded-full bg-green-600"></span> 
+                      <span>Good (≥80)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded-full bg-yellow-500"></span> 
+                      <span>Fair (60-79)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded-full bg-red-500"></span> 
+                      <span>Needs improvement (&lt;60)</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Playback */}
-            {recordedBlob && (
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div className="font-bold text-slate-700 mb-2">
-                  Listen to your recording:
+              {/* Playback */}
+              {recordedBlob && (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div className="font-bold text-slate-700 mb-2">
+                    Listen to your recording:
+                  </div>
+                  <audio controls className="w-full" src={URL.createObjectURL(recordedBlob)} />
                 </div>
-                <audio controls className="w-full" src={URL.createObjectURL(recordedBlob)} />
-              </div>
-            )}
+              )}
             </div>
           )}
 

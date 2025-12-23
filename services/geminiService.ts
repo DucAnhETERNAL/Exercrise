@@ -610,7 +610,7 @@ export const generateExercises = async (
               // Ensure exact match (use the option text exactly as it appears)
               question.correctAnswer = matchingOption;
             }
-          }
+          } 
         });
       }
     });

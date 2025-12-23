@@ -3,10 +3,11 @@ import { CefrLevel, ExerciseType, GeneratedContent, UserPreferences, StudentSubm
 import InputForm from './components/InputForm';
 import ExerciseCard from './components/ExerciseCard';
 import PaginatedExerciseView from './components/PaginatedExerciseView';
+import { AlertProvider, useAlert } from './contexts/AlertContext';
 import { generateExercises } from './services/geminiService';
   import { uploadToDrive, loadFromDrive, initDriveApi } from './services/driveService';
   import { submitToGoogleForm, submitToGoogleSheet } from './services/formService';
-  import { Sparkles, Printer, RefreshCw, Eye, EyeOff, CheckCircle, Trophy, Copy, Share2, User, Cloud, Loader2, Save, FileCheck, MessageSquare, X, ExternalLink } from 'lucide-react';
+  import { Sparkles, Printer, RefreshCw, Eye, EyeOff, CheckCircle, Trophy, Copy, Share2, User, Cloud, Loader2, Save, FileCheck, MessageSquare, X, ExternalLink, Mic2 } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- Modes ---
@@ -38,8 +39,12 @@ const App: React.FC = () => {
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [scoreData, setScoreData] = useState<{ correct: number; total: number } | null>(null);
+  const [speakingScoreData, setSpeakingScoreData] = useState<{ correct: number; total: number } | null>(null);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [feedbackTimerId, setFeedbackTimerId] = useState<number | null>(null);
+  
+  // Use alert context
+  const { showAlert } = useAlert();
   
   // Google Form Config - Hardcoded for test version
   // ⚠️ THAY THẾ URL DƯỚI ĐÂY BẰNG URL WEB APP CỦA BẠN SAU KHI DEPLOY GOOGLE APPS SCRIPT
@@ -121,6 +126,7 @@ const App: React.FC = () => {
     setUserAnswers({});
     setIsSubmitted(false);
     setScoreData(null);
+    setSpeakingScoreData(null);
     setStudentName("");
     setStudentFeedback("");
     setStarRating(0);
@@ -154,9 +160,9 @@ const App: React.FC = () => {
       setShareLink(url);
     } catch (e: any) {
       if (e.error === 'popup_blocked_by_browser') {
-        alert("Trình duyệt đã chặn cửa sổ đăng nhập Google. Vui lòng cho phép popup và thử lại.");
+        showAlert("Trình duyệt đã chặn cửa sổ đăng nhập Google. Vui lòng cho phép popup và thử lại.", 'warning');
       } else {
-        alert("Lỗi khi lưu vào Drive: " + (e.message || JSON.stringify(e)));
+        showAlert("Lỗi khi lưu vào Drive: " + (e.message || JSON.stringify(e)), 'error');
       }
     } finally {
       setLoadingStatus('idle');
@@ -166,7 +172,7 @@ const App: React.FC = () => {
   // Student submits to Google Form and saves answers to Drive
   const handleSubmitToForm = async () => {
     if (!scoreData || !studentName.trim()) {
-      alert("Vui lòng nhập tên của bạn.");
+      showAlert("Vui lòng nhập tên của bạn.", 'warning');
       return;
     }
     
@@ -203,9 +209,9 @@ const App: React.FC = () => {
       
       setFormSubmitted(true);
       setShowSaveModal(false); 
-      alert("Nộp bài thành công! Giáo viên đã nhận được kết quả.");
+      showAlert("Nộp bài thành công! Giáo viên đã nhận được kết quả.", 'success');
     } catch (e: any) {
-      alert("Lỗi khi nộp bài: " + (e.message || "Unknown error"));
+      showAlert("Lỗi khi nộp bài: " + (e.message || "Unknown error"), 'error');
     } finally {
       setLoadingStatus('idle');
     }
@@ -262,6 +268,10 @@ const App: React.FC = () => {
     // Calculate score
     let correctCount = 0;
     let totalCount = 0;
+    
+    // Calculate speaking score separately
+    let speakingCorrectCount = 0;
+    let speakingTotalCount = 0;
 
     const normalizeAnswer = (s: string | undefined): string => {
       if (!s) return '';
@@ -304,13 +314,27 @@ const App: React.FC = () => {
         const userAnswer = userAnswers[key];
 
         if (section.type === ExerciseType.SPEAKING) {
-          // Special handling for Speaking: Check if score >= 50
-          // userAnswers stores "Score: 85"
-          if (userAnswer && userAnswer.startsWith("Score: ")) {
-            const score = parseInt(userAnswer.split(": ")[1], 10);
-            if (!isNaN(score) && score >= 60) {
-              correctCount++;
+          // Count speaking questions separately
+          speakingTotalCount++;
+          
+          // Special handling for Speaking: Check if score >= 60
+          // userAnswers stores "SPEAKING_FEEDBACK:{json}" or legacy "Score: 85"
+          let score = 0;
+          if (userAnswer && userAnswer.startsWith("SPEAKING_FEEDBACK:")) {
+            try {
+              const jsonStr = userAnswer.replace('SPEAKING_FEEDBACK:', '');
+              const data = JSON.parse(jsonStr);
+              score = data.score || 0;
+            } catch (e) {
+              console.error('Failed to parse speaking feedback:', e);
             }
+          } else if (userAnswer && userAnswer.startsWith("Score: ")) {
+            score = parseInt(userAnswer.split(": ")[1], 10);
+          }
+          
+          if (!isNaN(score) && score >= 60) {
+            correctCount++;
+            speakingCorrectCount++;
           }
         } else {
           // Standard check for Multiple Choice / Text
@@ -322,6 +346,7 @@ const App: React.FC = () => {
     });
 
     setScoreData({ correct: correctCount, total: totalCount });
+    setSpeakingScoreData({ correct: speakingCorrectCount, total: speakingTotalCount });
     setIsSubmitted(true);
     // Students see answers after submitting
     setShowAnswers(true); 
@@ -900,16 +925,41 @@ const App: React.FC = () => {
       {/* Success message after form submission */}
       {formSubmitted && (
         <div className="fixed bottom-0 left-0 right-0 bg-green-600 shadow-2xl z-40 print:hidden animate-slide-up">
-          <div className="max-w-5xl mx-auto px-4 py-3">
-            <p className="text-white font-bold text-center flex items-center justify-center gap-2">
-              <CheckCircle className="w-5 h-5" />
-              ✅ Đã nộp bài thành công! Giáo viên đã nhận được kết quả.
-            </p>
+          <div className="max-w-5xl mx-auto px-4 py-4">
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-white font-bold text-center flex items-center justify-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                ✅ Đã nộp bài thành công! Giáo viên đã nhận được kết quả.
+              </p>
+              {scoreData && (
+                <div className="flex items-center gap-6 text-white">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-yellow-300" />
+                    <span className="font-semibold">Điểm tổng: {scoreData.correct} / {scoreData.total}</span>
+                  </div>
+                  {speakingScoreData && speakingScoreData.total > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Mic2 className="w-5 h-5 text-yellow-300" />
+                      <span className="font-semibold">Điểm Speaking: {speakingScoreData.correct} / {speakingScoreData.total}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };
 
-export default App;
+const AppWithProvider: React.FC = () => {
+  return (
+    <AlertProvider>
+      <App />
+    </AlertProvider>
+  );
+};
+
+export default AppWithProvider;
