@@ -908,7 +908,11 @@ export const evaluatePronunciation = async (
   audioBlob: Blob,
   targetPhrase: string
 ): Promise<PronunciationFeedback> => {
+  const model = "gemini-2.5-flash";
+
   try {
+    // Comment: API bên ngoài đang bị lỗi, sử dụng Gemini thay thế
+    /*
     const formData = new FormData();
     formData.append('audio', audioBlob, 'recording.webm');
     formData.append('referenceText', targetPhrase);
@@ -958,6 +962,167 @@ export const evaluatePronunciation = async (
       fluencyScore: scores.fluency,
       completenessScore: scores.completeness,
       wordFeedback: wordFeedback
+    };
+    */
+
+    // Chuyển đổi audioBlob thành base64 để gửi đến Gemini
+    const audioBase64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        // Loại bỏ data URL prefix (data:audio/webm;base64,)
+        const base64Data = base64String.split(',')[1] || base64String;
+        resolve(base64Data);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(audioBlob);
+    });
+
+    // Xác định MIME type từ blob
+    const mimeType = audioBlob.type || 'audio/webm';
+
+    // Tách target phrase thành các từ để đánh giá từng từ
+    const words = targetPhrase.trim().split(/\s+/).filter(w => w.length > 0);
+
+    const prompt = `
+Bạn là một chuyên gia đánh giá phát âm tiếng Anh. Nhiệm vụ của bạn là phân tích đoạn ghi âm và so sánh với cụm từ mục tiêu: "${targetPhrase}"
+
+Hãy đánh giá phát âm theo các tiêu chí sau:
+
+1. **Pronunciation Score (0-100)**: Đánh giá tổng thể về chất lượng phát âm
+2. **Accuracy Score (0-100)**: Độ chính xác của các âm vị (phonemes) so với cách phát âm chuẩn
+3. **Fluency Score (0-100)**: Độ trôi chảy và tự nhiên của lời nói (nhịp điệu, ngắt nghỉ)
+4. **Completeness Score (0-100)**: Mức độ hoàn chỉnh - người nói đã nói đủ các từ trong cụm từ mục tiêu chưa
+
+5. **Word-by-word Feedback**: Đánh giá từng từ trong cụm từ "${targetPhrase}"
+   - Với mỗi từ, cung cấp:
+     * Từ đó
+     * Status: 'correct' (≥80), 'partial' (50-79), hoặc 'incorrect' (<50)
+     * Score (0-100): Điểm phát âm của từ đó
+
+Hãy trả về kết quả dưới dạng JSON với cấu trúc:
+{
+  "pronunciationScore": <số 0-100>,
+  "accuracyScore": <số 0-100>,
+  "fluencyScore": <số 0-100>,
+  "completenessScore": <số 0-100>,
+  "wordFeedback": [
+    {
+      "word": "<từ>",
+      "status": "correct" | "partial" | "incorrect",
+      "score": <số 0-100>
+    },
+    ...
+  ]
+}
+
+Lưu ý:
+- Hãy đánh giá một cách công bằng và khách quan
+- Nếu người nói phát âm tốt nhưng thiếu một số từ, completenessScore sẽ thấp hơn
+- Nếu phát âm rõ ràng nhưng không tự nhiên, fluencyScore sẽ thấp hơn
+- accuracyScore tập trung vào độ chính xác của các âm vị
+`;
+
+    const schema = {
+      type: Type.OBJECT,
+      properties: {
+        pronunciationScore: { 
+          type: Type.NUMBER, 
+          description: "Overall pronunciation quality score (0-100)" 
+        },
+        accuracyScore: { 
+          type: Type.NUMBER, 
+          description: "Phoneme accuracy score (0-100)" 
+        },
+        fluencyScore: { 
+          type: Type.NUMBER, 
+          description: "Speech fluency and naturalness score (0-100)" 
+        },
+        completenessScore: { 
+          type: Type.NUMBER, 
+          description: "Completeness score - how much of target phrase was spoken (0-100)" 
+        },
+        wordFeedback: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              word: { type: Type.STRING },
+              status: { 
+                type: Type.STRING, 
+                enum: ['correct', 'partial', 'incorrect'] 
+              },
+              score: { type: Type.NUMBER }
+            },
+            required: ["word", "status", "score"]
+          }
+        }
+      },
+      required: ["pronunciationScore", "accuracyScore", "fluencyScore", "completenessScore", "wordFeedback"]
+    };
+
+    const contents = {
+      parts: [
+        {
+          inlineData: {
+            data: audioBase64,
+            mimeType: mimeType
+          }
+        },
+        { text: prompt }
+      ]
+    };
+
+    const response = await withRetry(
+      () => ai.models.generateContent({
+        model: model,
+        contents: contents,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+        },
+      }),
+      3,
+      "Pronunciation evaluation"
+    );
+
+    const text = response.text;
+    if (!text) throw new Error("No pronunciation assessment generated");
+
+    const result = JSON.parse(text) as {
+      pronunciationScore: number;
+      accuracyScore: number;
+      fluencyScore: number;
+      completenessScore: number;
+      wordFeedback: Array<{ word: string; status: 'correct' | 'partial' | 'incorrect'; score: number }>;
+    };
+
+    // Đảm bảo wordFeedback có đủ số lượng từ
+    // Nếu Gemini trả về ít hơn, thêm các từ còn lại với status 'incorrect'
+    const existingWords = result.wordFeedback.map(w => w.word.toLowerCase());
+    const missingWords = words.filter(w => !existingWords.includes(w.toLowerCase()));
+    
+    missingWords.forEach(word => {
+      result.wordFeedback.push({
+        word: word,
+        status: 'incorrect',
+        score: 0
+      });
+    });
+
+    // Đảm bảo các điểm số nằm trong khoảng 0-100
+    const clampScore = (score: number) => Math.max(0, Math.min(100, Math.round(score)));
+
+    return {
+      pronunciationScore: clampScore(result.pronunciationScore),
+      accuracyScore: clampScore(result.accuracyScore),
+      fluencyScore: clampScore(result.fluencyScore),
+      completenessScore: clampScore(result.completenessScore),
+      wordFeedback: result.wordFeedback.map(w => ({
+        word: w.word,
+        status: w.status,
+        score: clampScore(w.score)
+      }))
     };
 
   } catch (error: any) {
