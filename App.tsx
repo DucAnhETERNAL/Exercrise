@@ -5,7 +5,7 @@ import ExerciseCard from './components/ExerciseCard';
 import PaginatedExerciseView from './components/PaginatedExerciseView';
 import { AlertProvider, useAlert } from './contexts/AlertContext';
 import { generateExercises } from './services/geminiService';
-  import { uploadToDrive, loadFromDrive, initDriveApi } from './services/driveService';
+  import { uploadToR2, loadFromR2 } from './services/r2Service';
   import { submitToGoogleForm, submitToGoogleSheet } from './services/formService';
   import { Sparkles, Printer, RefreshCw, Eye, EyeOff, CheckCircle, Trophy, Copy, Share2, User, Cloud, Loader2, Save, FileCheck, MessageSquare, X, ExternalLink, Mic2 } from 'lucide-react';
 
@@ -63,10 +63,7 @@ const App: React.FC = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmModalData, setConfirmModalData] = useState<{ answered: number; total: number } | null>(null);
 
-  // Initialize Drive API on mount
-  useEffect(() => {
-    initDriveApi().catch(() => {});
-  }, []);
+  // R2 doesn't need initialization like Drive API
 
   // --- Initialization: Check for Shared Link (File ID) ---
   useEffect(() => {
@@ -81,19 +78,19 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleLoadExercise = (fileId: string) => {
+  const handleLoadExercise = (fileKey: string) => {
     setIsStudentMode(true);
-    setCurrentFileId(fileId);
-    setLoadingStatus('loading_drive');
+    setCurrentFileId(fileKey);
+    setLoadingStatus('loading_drive'); // Loading from R2
     
-    loadFromDrive(fileId)
+    loadFromR2(fileKey)
       .then((data) => {
         setContent(data as GeneratedContent);
         // Clean URL visual only
         window.history.replaceState({}, document.title, window.location.pathname);
       })
       .catch(() => {
-        setError("Không thể tải bài tập từ Google Drive. Link có thể bị hỏng hoặc file đã bị xóa.");
+        setError("Không thể tải bài tập từ R2. Link có thể bị hỏng hoặc file đã bị xóa.");
       })
       .finally(() => {
         setLoadingStatus('idle');
@@ -144,32 +141,29 @@ const App: React.FC = () => {
   };
 
   // Teacher saves Exercise Template + Generates Link with Form Config
-  const handleSaveExerciseToDrive = async () => {
+  const handleSaveExerciseToR2 = async () => {
     if (!content) return;
 
     setLoadingStatus('uploading');
     try {
       const fileName = `GenEnglish_${preferences.topic || 'Exercise'}_${Date.now()}.json`;
       
-      const fileId = await uploadToDrive(content, fileName);
-      setCurrentFileId(fileId); 
+      const fileKey = await uploadToR2(content, fileName);
+      setCurrentFileId(fileKey); 
       
-      const baseUrl = window.location.href.split('?')[0];
-      // Form config is hardcoded, no need to encode in URL
-      const url = `${baseUrl}?fileId=${fileId}`;
+      // Use origin + pathname to ensure clean base URL (works better with mobile browsers like Zalo)
+      const baseUrl = `${window.location.origin}${window.location.pathname}`;
+      // Encode fileKey properly for mobile browsers (Zalo mobile requires proper URL encoding)
+      const url = `${baseUrl}?fileId=${encodeURIComponent(fileKey)}`;
       setShareLink(url);
     } catch (e: any) {
-      if (e.error === 'popup_blocked_by_browser') {
-        showAlert("Trình duyệt đã chặn cửa sổ đăng nhập Google. Vui lòng cho phép popup và thử lại.", 'warning');
-      } else {
-        showAlert("Lỗi khi lưu vào Drive: " + (e.message || JSON.stringify(e)), 'error');
-      }
+      showAlert("Lỗi khi lưu vào R2: " + (e.message || JSON.stringify(e)), 'error');
     } finally {
       setLoadingStatus('idle');
     }
   };
 
-  // Student submits to Google Form and saves answers to Drive
+  // Student submits to Google Form and saves answers
   const handleSubmitToForm = async () => {
     if (!scoreData || !studentName.trim()) {
       showAlert("Vui lòng nhập tên của bạn.", 'warning');
@@ -448,7 +442,7 @@ const App: React.FC = () => {
                           {loadingStatus === 'analyzing_video' && 'Đang phân tích video...'}
                           {loadingStatus === 'generating_content' && 'Đang tạo nội dung bài tập...'}
                           {loadingStatus === 'generating_images' && 'Đang vẽ hình minh họa (sẽ mất chút thời gian)...'}
-                          {loadingStatus === 'loading_drive' && 'Đang tải dữ liệu từ Drive...'}
+                          {loadingStatus === 'loading_drive' && 'Đang tải dữ liệu từ R2...'}
                           {loadingStatus === 'uploading' && 'Đang xử lý...'}
                           {!['analyzing_video', 'generating_content', 'generating_images', 'loading_drive', 'uploading'].includes(loadingStatus) && 'Đang xử lý...'}
                         </p>
@@ -752,12 +746,12 @@ const App: React.FC = () => {
                   {!isStudentMode && !isReviewMode && (
                     <>
                       <button 
-                         onClick={handleSaveExerciseToDrive}
+                         onClick={handleSaveExerciseToR2}
                          disabled={loadingStatus === 'uploading'}
                          className="flex items-center gap-2 px-3 py-2 bg-antoree-lightGreen text-antoree-green font-medium rounded-lg hover:bg-green-100 transition-colors border border-green-200"
                       >
                         {loadingStatus === 'uploading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        {loadingStatus === 'uploading' ? 'Đang lưu...' : 'Lưu Đề (Drive)'}
+                        {loadingStatus === 'uploading' ? 'Đang lưu...' : 'Lưu Đề (R2)'}
                       </button>
                       <button 
                         onClick={() => setShowAnswers(!showAnswers)}
