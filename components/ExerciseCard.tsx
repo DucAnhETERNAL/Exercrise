@@ -73,27 +73,28 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
-      {/* Header */}
-      <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-antoree-green font-semibold">
+    <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4 md:mb-8">
+      {/* Header - Compact on mobile */}
+      <div className="bg-slate-50 px-4 md:px-6 py-3 md:py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-antoree-green font-semibold text-sm md:text-base">
           {getIcon()}
           <span>{section.type}</span>
         </div>
-        <span className="text-xs font-mono text-slate-400 bg-slate-200 px-2 py-1 rounded">
+        {/* Hide section ID on mobile - not needed for students */}
+        <span className="hidden md:inline text-xs font-mono text-slate-400 bg-slate-200 px-2 py-1 rounded">
           {section.id}
         </span>
       </div>
 
-      <div className="p-6">
-        <h3 className="text-xl font-bold text-slate-800 mb-2">{section.title}</h3>
-        <p className="text-slate-600 mb-6 italic">{section.instruction}</p>
+      <div className="p-4 md:p-6">
+        <h3 className="text-lg md:text-xl font-bold text-slate-800 mb-2">{section.title}</h3>
+        <p className="text-sm md:text-base text-slate-600 mb-4 md:mb-6 italic">{section.instruction}</p>
 
         {/* Context for Reading (NOT for Listening - each question is independent) */}
         {section.contextText && section.type !== ExerciseType.LISTENING && (
-          <div className="mb-8 p-5 bg-slate-50 rounded-xl border border-slate-100">
+          <div className="mb-4 md:mb-8 p-4 md:p-5 bg-slate-50 rounded-lg md:rounded-xl border border-slate-100">
             <div className="prose prose-slate max-w-none">
-              <p className="text-slate-800 leading-relaxed whitespace-pre-line">{section.contextText}</p>
+              <p className="text-sm md:text-base text-slate-800 leading-relaxed whitespace-pre-line">{section.contextText}</p>
             </div>
           </div>
         )}
@@ -324,27 +325,27 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
   };
 
   return (
-    <div className="border-b border-slate-100 pb-6 last:border-0 last:pb-0">
-      <div className="flex gap-3">
-        <span className={`flex-shrink-0 w-8 h-8 rounded-full text-sm font-bold flex items-center justify-center mt-0.5 transition-colors ${
+    <div className="border-b border-slate-100 pb-4 md:pb-6 last:border-0 last:pb-0">
+      <div className="flex gap-2 md:gap-3">
+        <span className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full text-xs md:text-sm font-bold flex items-center justify-center mt-0.5 transition-colors ${
            isSubmitted 
              ? (isCorrect ? 'bg-green-100 text-green-700' : (isAnswered ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'))
              : 'bg-slate-100 text-slate-600'
         }`}>
-          {isSubmitted ? (isCorrect ? <CheckCircle2 className="w-5 h-5" /> : (isAnswered ? <XCircle className="w-5 h-5" /> : <span className="text-yellow-700">?</span>)) : index + 1}
+          {isSubmitted ? (isCorrect ? <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5" /> : (isAnswered ? <XCircle className="w-4 h-4 md:w-5 md:h-5" /> : <span className="text-yellow-700 text-xs">?</span>)) : index + 1}
         </span>
-        <div className="flex-grow">
+        <div className="flex-grow min-w-0">
           {/* Question Text */}
-          <p className="font-medium text-slate-800 mb-3 text-lg leading-snug">{question.questionText}</p>
+          <p className="font-medium text-slate-800 mb-3 text-base md:text-lg leading-snug">{question.questionText}</p>
 
           {/* Generated Image (For Vocabulary & Listening) */}
           {question.questionImage && (
-            <div className="mb-6 max-w-sm">
-                <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm relative group bg-slate-50">
+            <div className="mb-4 md:mb-6 max-w-sm">
+                <div className="rounded-lg md:rounded-xl overflow-hidden border border-slate-200 shadow-sm relative group bg-slate-50">
                     <img 
                       src={question.questionImage} 
                       alt="Identify this" 
-                      className="w-full h-auto object-cover max-h-64"
+                      className="w-full h-auto object-cover max-h-48 md:max-h-64"
                     />
                      <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1">
                         <ImageIcon className="w-3 h-3" />
@@ -356,8 +357,8 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
 
           {/* Audio Player for Listening Questions (HTML5 with seek/scrub controls) */}
           {isListening && question.audioData && (
-            <div className="mb-6 flex flex-col items-center gap-2">
-              <div className="w-full max-w-md bg-gradient-to-r from-antoree-lightGreen to-green-50 p-4 rounded-xl border border-green-200 shadow-sm">
+            <div className="mb-4 md:mb-6 flex flex-col items-center gap-2">
+              <div className="w-full max-w-md bg-gradient-to-r from-antoree-lightGreen to-green-50 p-3 md:p-4 rounded-lg md:rounded-xl border border-green-200 shadow-sm">
                 <div className="flex items-center gap-3 mb-2">
                   <Volume2 className="w-5 h-5 text-antoree-green flex-shrink-0" />
                   <span className="text-sm font-semibold text-green-900">Listening Track</span>
@@ -380,14 +381,14 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
           
           {/* Fallback: Web Speech API if no pre-generated audio */}
           {isListening && !question.audioData && (
-            <div className="mb-6 flex justify-center">
-              <div className="text-sm text-slate-500 bg-yellow-50 px-4 py-2 rounded-lg border border-yellow-200">
+            <div className="mb-4 md:mb-6 flex justify-center">
+              <div className="text-xs md:text-sm text-slate-500 bg-yellow-50 px-3 md:px-4 py-2 rounded-lg border border-yellow-200">
                 ⚠️ Audio not generated for this question
               </div>
             </div>
           )}
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
             {question.options && question.options.length > 0 && question.options.map((opt: string, i: number) => {
               const isSelected = userSelected === opt;
               const isTheCorrectAnswer = normalizeAnswer(opt) === normalizedCorrect;
@@ -469,9 +470,9 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
                     }
                   }}
                   disabled={isSubmitted || showAnswer}
-                  className={`text-left px-5 py-4 border rounded-xl text-base transition-all duration-200 ${buttonClass} ${!showOptionText ? 'justify-center text-center' : ''}`}
+                  className={`text-left px-4 md:px-5 py-3 md:py-4 border rounded-lg md:rounded-xl text-sm md:text-base transition-all duration-200 ${buttonClass} ${!showOptionText ? 'justify-center text-center' : ''}`}
                 >
-                  <span className={`font-semibold ${showOptionText ? 'mr-3' : ''} opacity-60 uppercase`}>
+                  <span className={`font-semibold ${showOptionText ? 'mr-2 md:mr-3' : ''} opacity-60 uppercase text-xs md:text-sm`}>
                     {String.fromCharCode(65 + i)}{showOptionText ? '.' : ''}
                   </span>
                   {showOptionText && opt}
@@ -483,18 +484,18 @@ const QuestionItem: React.FC<QuestionItemProps> = ({
           {/* Explanation / Result */}
           {/* Always show answer if showAnswer is true OR if submitted (regardless of correctness) */}
           {(showAnswer || isSubmitted) && (
-            <div className={`mt-4 p-4 rounded-xl text-sm flex gap-3 ${
+            <div className={`mt-3 md:mt-4 p-3 md:p-4 rounded-lg md:rounded-xl text-xs md:text-sm flex gap-2 md:gap-3 ${
               isSubmitted 
                 ? (!isAnswered ? 'bg-yellow-50 text-yellow-900 border border-yellow-200' : (!isCorrect ? 'bg-red-50 text-red-900' : 'bg-green-50 text-green-900'))
                 : 'bg-blue-50 text-blue-800'
             }`}>
                <div className="mt-0.5 flex-shrink-0">
                  {isSubmitted 
-                   ? (!isAnswered ? <span className="text-yellow-700 text-lg">⚠</span> : (!isCorrect ? <XCircle className="w-5 h-5 text-red-600" /> : <CheckCircle2 className="w-5 h-5 text-green-600" />))
-                   : <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                   ? (!isAnswered ? <span className="text-yellow-700 text-base md:text-lg">⚠</span> : (!isCorrect ? <XCircle className="w-4 h-4 md:w-5 md:h-5 text-red-600" /> : <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-green-600" />))
+                   : <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
                  }
                </div>
-               <div>
+               <div className="min-w-0">
                  <span className="font-bold block mb-1">
                     {isSubmitted 
                       ? (!isAnswered ? 'Not answered. ' : (!isCorrect ? 'Incorrect. ' : ''))
@@ -723,38 +724,38 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
   };
 
   return (
-    <div className="border-b border-slate-100 pb-6 last:border-0 last:pb-0">
-      <div className="flex gap-3">
-        <span className={`flex-shrink-0 w-8 h-8 rounded-full text-sm font-bold flex items-center justify-center mt-0.5 transition-colors ${
+    <div className="border-b border-slate-100 pb-4 md:pb-6 last:border-0 last:pb-0">
+      <div className="flex gap-2 md:gap-3">
+        <span className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full text-xs md:text-sm font-bold flex items-center justify-center mt-0.5 transition-colors ${
           feedback ? 'bg-antoree-lightGreen text-antoree-green' : 'bg-slate-100 text-slate-600'
         }`}>
-          {feedback ? <CheckCircle2 className="w-5 h-5" /> : index + 1}
+          {feedback ? <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5" /> : index + 1}
         </span>
-        <div className="flex-grow">
+        <div className="flex-grow min-w-0">
           {/* Question Text */}
-          <p className="font-medium text-slate-800 mb-3 text-lg leading-snug">{question.questionText}</p>
+          <p className="font-medium text-slate-800 mb-3 text-base md:text-lg leading-snug">{question.questionText}</p>
 
           {/* Target Phrase */}
-          <div className="mb-6 p-5 bg-antoree-lightGreen rounded-xl border border-green-100">
-            <div className="text-2xl font-bold text-antoree-green mb-2 text-center">
+          <div className="mb-4 md:mb-6 p-4 md:p-5 bg-antoree-lightGreen rounded-lg md:rounded-xl border border-green-100">
+            <div className="text-xl md:text-2xl font-bold text-antoree-green mb-2 text-center">
               "{question.targetPhrase || question.correctAnswer}"
             </div>
             {question.pronunciationTips && (
-              <div className="text-sm text-antoree-darkGreen mt-3">
+              <div className="text-xs md:text-sm text-antoree-darkGreen mt-3">
                 <span className="font-semibold">💡 Tips: </span>
                 {question.pronunciationTips}
               </div>
             )}
             
             {/* Sample Audio Button */}
-            <div className="mt-4 flex justify-center">
+            <div className="mt-3 md:mt-4 flex justify-center">
               <button
                 onClick={playSampleAudio}
                 disabled={isPlayingSample}
-                className={`px-6 py-3 rounded-full font-semibold transition-all shadow-sm ${
+                className={`px-4 md:px-6 py-2 md:py-3 rounded-full text-sm md:text-base font-semibold transition-all shadow-sm ${
                   isPlayingSample 
                   ? 'bg-green-100 text-green-700 border border-green-200' 
-                  : 'bg-antoree-green text-white hover:bg-antoree-darkGreen hover:shadow-md'
+                  : 'bg-antoree-green text-white active:bg-antoree-darkGreen active:shadow-md'
                 }`}
               >
                 {isPlayingSample ? 'Đang phát...' : 'Nghe Audio Mẫu'}
@@ -763,7 +764,7 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
           </div>
 
           {/* Recording Controls */}
-          <div className="flex flex-col items-center gap-4 mb-6">
+          <div className="flex flex-col items-center gap-3 md:gap-4 mb-4 md:mb-6">
             {!isRecording && !isEvaluating && (
               <button
                 onMouseDown={startRecording}
@@ -778,9 +779,9 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
                   stopRecording();
                 }}
                 disabled={isSubmitted}
-                className="px-8 py-4 bg-red-500 text-white font-bold rounded-full hover:bg-red-600 shadow-lg transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 active:scale-95"
+                className="px-6 md:px-8 py-3 md:py-4 bg-red-500 text-white text-sm md:text-base font-bold rounded-full active:bg-red-600 shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 md:gap-3"
               >
-                <Mic2 className="w-5 h-5" />
+                <Mic2 className="w-4 h-4 md:w-5 md:h-5" />
                 {feedback ? 'Nhấn giữ để nói lại' : 'Nhấn giữ để nói'}
               </button>
             )}
@@ -792,16 +793,17 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
                   e.preventDefault();
                   stopRecording();
                 }}
-                className="px-8 py-4 bg-red-600 text-white font-bold rounded-full shadow-lg animate-pulse flex items-center gap-3 cursor-pointer active:scale-95"
+                className="px-6 md:px-8 py-3 md:py-4 bg-red-600 text-white text-sm md:text-base font-bold rounded-full shadow-lg animate-pulse flex items-center gap-2 md:gap-3 cursor-pointer active:scale-95"
               >
-                <Mic2 className="w-5 h-5 animate-pulse" />
-                Đang ghi âm... (Thả để nộp)
+                <Mic2 className="w-4 h-4 md:w-5 md:h-5 animate-pulse" />
+                <span className="hidden sm:inline">Đang ghi âm... (Thả để nộp)</span>
+                <span className="sm:hidden">Đang ghi âm...</span>
               </button>
             )}
 
             {isEvaluating && (
-              <div className="flex items-center gap-2 text-antoree-green font-medium">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-antoree-green"></div>
+              <div className="flex items-center gap-2 text-antoree-green font-medium text-sm md:text-base">
+                <div className="animate-spin rounded-full h-4 w-4 md:h-5 md:w-5 border-b-2 border-antoree-green"></div>
                 Đang đánh giá phát âm...
               </div>
             )}
@@ -809,30 +811,30 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
 
           {/* Pronunciation Feedback - Redesigned - Always show when feedback exists or when submitted */}
           {feedback && (
-            <div className="mt-4 space-y-6">
+            <div className="mt-4 space-y-4 md:space-y-6">
               {/* Main Score Card */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                <h4 className="text-center font-bold text-slate-700 mb-4 text-lg">Điểm tổng</h4>
-                <div className="text-center text-5xl font-black text-antoree-green mb-8">{feedback.pronunciationScore.toFixed(1)}</div>
+              <div className="bg-white rounded-lg md:rounded-xl border border-slate-200 p-4 md:p-6 shadow-sm">
+                <h4 className="text-center font-bold text-slate-700 mb-3 md:mb-4 text-base md:text-lg">Điểm tổng</h4>
+                <div className="text-center text-4xl md:text-5xl font-black text-antoree-green mb-6 md:mb-8">{feedback.pronunciationScore.toFixed(1)}</div>
 
                 {/* Always show details when submitted, otherwise respect showDetails toggle */}
                 {(showDetails || isSubmitted) && (
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
-                      <div className="text-sm text-slate-500 font-medium mb-1">Độ chính xác</div>
-                      <div className="text-2xl font-bold text-slate-800">{feedback.accuracyScore.toFixed(1)}</div>
+                  <div className="grid grid-cols-2 gap-2 md:gap-4 mb-4 md:mb-6">
+                    <div className="bg-slate-50 p-3 md:p-4 rounded-lg md:rounded-xl border border-slate-100 text-center">
+                      <div className="text-xs md:text-sm text-slate-500 font-medium mb-1">Độ chính xác</div>
+                      <div className="text-xl md:text-2xl font-bold text-slate-800">{feedback.accuracyScore.toFixed(1)}</div>
                     </div>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
-                      <div className="text-sm text-slate-500 font-medium mb-1">Fluency</div>
-                      <div className="text-2xl font-bold text-antoree-green">{feedback.fluencyScore.toFixed(1)}</div>
+                    <div className="bg-slate-50 p-3 md:p-4 rounded-lg md:rounded-xl border border-slate-100 text-center">
+                      <div className="text-xs md:text-sm text-slate-500 font-medium mb-1">Fluency</div>
+                      <div className="text-xl md:text-2xl font-bold text-antoree-green">{feedback.fluencyScore.toFixed(1)}</div>
                     </div>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
-                      <div className="text-sm text-slate-500 font-medium mb-1">Completeness</div>
-                      <div className="text-2xl font-bold text-slate-800">{feedback.completenessScore.toFixed(1)}</div>
+                    <div className="bg-slate-50 p-3 md:p-4 rounded-lg md:rounded-xl border border-slate-100 text-center">
+                      <div className="text-xs md:text-sm text-slate-500 font-medium mb-1">Completeness</div>
+                      <div className="text-xl md:text-2xl font-bold text-slate-800">{feedback.completenessScore.toFixed(1)}</div>
                     </div>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
-                      <div className="text-sm text-slate-500 font-medium mb-1">Pronunciation</div>
-                      <div className="text-2xl font-bold text-antoree-green">{feedback.pronunciationScore.toFixed(1)}</div>
+                    <div className="bg-slate-50 p-3 md:p-4 rounded-lg md:rounded-xl border border-slate-100 text-center">
+                      <div className="text-xs md:text-sm text-slate-500 font-medium mb-1">Pronunciation</div>
+                      <div className="text-xl md:text-2xl font-bold text-antoree-green">{feedback.pronunciationScore.toFixed(1)}</div>
                     </div>
                   </div>
                 )}
@@ -856,10 +858,10 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
 
               {/* Word-by-Word Feedback with Colors - Always show when submitted */}
               {(showDetails || isSubmitted) && feedback.wordFeedback && feedback.wordFeedback.length > 0 && (
-                <div className="bg-white rounded-xl border border-slate-200 p-6">
-                  <div className="text-center mb-4">
-                    <p className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">Word-by-word analysis</p>
-                    <div className="text-2xl font-bold leading-relaxed flex flex-wrap justify-center gap-2">
+                <div className="bg-white rounded-lg md:rounded-xl border border-slate-200 p-4 md:p-6">
+                  <div className="text-center mb-3 md:mb-4">
+                    <p className="text-xs md:text-sm font-semibold text-slate-600 mb-2 md:mb-3 uppercase tracking-wide">Word-by-word analysis</p>
+                    <div className="text-lg md:text-2xl font-bold leading-relaxed flex flex-wrap justify-center gap-1 md:gap-2">
                       {feedback.wordFeedback.map((word, idx) => {
                         let colorClass = '';
                         if (word.status === 'correct') {
@@ -873,7 +875,7 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
                         return (
                           <span 
                             key={idx} 
-                            className={`${colorClass} transition-all hover:scale-110 cursor-default`} 
+                            className={`${colorClass} transition-all cursor-default`} 
                             title={`Score: ${Math.round(word.score || 0)}`}
                           >
                             {word.word}
@@ -884,17 +886,17 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
                   </div>
 
                   {/* Legend */}
-                  <div className="flex justify-center gap-4 text-xs font-medium text-slate-500 mt-4 pt-4 border-t border-slate-100">
+                  <div className="flex flex-wrap justify-center gap-2 md:gap-4 text-xs font-medium text-slate-500 mt-3 md:mt-4 pt-3 md:pt-4 border-t border-slate-100">
                     <div className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-green-600"></span> 
+                      <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-green-600"></span> 
                       <span>Good (≥80)</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-yellow-500"></span> 
+                      <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-yellow-500"></span> 
                       <span>Fair (60-79)</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-red-500"></span> 
+                      <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-red-500"></span> 
                       <span>Needs improvement (&lt;60)</span>
                     </div>
                   </div>
@@ -903,8 +905,8 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
 
               {/* Playback */}
               {recordedBlob && (
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <div className="font-bold text-slate-700 mb-2">
+                <div className="bg-slate-50 p-3 md:p-4 rounded-lg md:rounded-xl border border-slate-200">
+                  <div className="font-bold text-sm md:text-base text-slate-700 mb-2">
                     Listen to your recording:
                   </div>
                   <audio controls className="w-full" src={URL.createObjectURL(recordedBlob)} />
@@ -913,9 +915,9 @@ const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({
             </div>
           )}
 
-          {/* Show correct phrase when teacher views answers */}
+          {/* Show correct phrase when Antoree views answers */}
           {showAnswer && !feedback && (
-            <div className="mt-4 p-4 rounded-xl text-sm bg-blue-50 text-blue-800 border border-blue-100">
+            <div className="mt-3 md:mt-4 p-3 md:p-4 rounded-lg md:rounded-xl text-xs md:text-sm bg-blue-50 text-blue-800 border border-blue-100">
               <span className="font-bold block mb-1">Target Phrase:</span>
               {question.targetPhrase || question.correctAnswer}
             </div>

@@ -71,8 +71,8 @@ const PaginatedExerciseView: React.FC<PaginatedExerciseViewProps> = ({
   const goToPage = (page: number) => {
     if (page >= 0 && page < totalPages) {
       setCurrentPage(page);
-      // Don't scroll to top - let user stay at their current scroll position
-      // This provides a smoother experience when navigating between questions
+      // Scroll to top when changing pages on mobile for better focus
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -84,17 +84,17 @@ const PaginatedExerciseView: React.FC<PaginatedExerciseViewProps> = ({
 
   return (
     <div className="w-full">
-      {/* Progress Bar */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-slate-600">
-            Câu {currentPage * questionsPerPage + 1} - {Math.min((currentPage + 1) * questionsPerPage, allQuestions.length)} / {allQuestions.length}
+      {/* Progress Bar - Compact on mobile */}
+      <div className="mb-4 md:mb-6">
+        <div className="flex items-center justify-between mb-2 px-1">
+          <span className="text-xs md:text-sm font-medium text-slate-600">
+            Câu {currentPage * questionsPerPage + 1} / {allQuestions.length}
           </span>
-          <span className="text-sm font-medium text-slate-600">
+          <span className="text-xs md:text-sm font-medium text-slate-600 hidden sm:inline">
             Trang {currentPage + 1} / {totalPages}
           </span>
         </div>
-        <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+        <div className="w-full bg-slate-200 rounded-full h-2 md:h-2.5 overflow-hidden">
           <div 
             className="bg-gradient-to-r from-antoree-green to-green-600 h-full rounded-full transition-all duration-300 ease-out"
             style={{ width: `${progress}%` }}
@@ -103,7 +103,7 @@ const PaginatedExerciseView: React.FC<PaginatedExerciseViewProps> = ({
       </div>
 
       {/* All Questions - Render all but hide non-current page */}
-      <div className="space-y-6 mb-8">
+      <div className="space-y-4 md:space-y-6 mb-4 md:mb-8">
         {allQuestions.map((q) => {
           // Only show questions from current page
           const isVisible = q.page === currentPage;
@@ -133,23 +133,24 @@ const PaginatedExerciseView: React.FC<PaginatedExerciseViewProps> = ({
         })}
       </div>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-200">
+      {/* Navigation - Simplified on mobile, full on desktop */}
+      <div className="flex items-center justify-between mt-6 md:mt-8 pt-4 md:pt-6 border-t border-slate-200">
         <button
           onClick={goToPrevious}
           disabled={currentPage === 0}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+          className={`flex items-center justify-center gap-2 px-4 md:px-6 py-3 md:py-3 rounded-xl font-semibold transition-all min-w-[100px] md:min-w-[120px] ${
             currentPage === 0
               ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              : 'bg-antoree-green text-white hover:bg-antoree-darkGreen shadow-md hover:shadow-lg'
+              : 'bg-antoree-green text-white active:bg-antoree-darkGreen shadow-md active:shadow-lg active:scale-95'
           }`}
         >
           <ChevronLeft className="w-5 h-5" />
-          Trước
+          <span className="hidden sm:inline">Trước</span>
+          <span className="sm:hidden">‹</span>
         </button>
 
-        {/* Page Indicators */}
-        <div className="flex items-center gap-2">
+        {/* Page Indicators - Hidden on small screens, shown on md+ */}
+        <div className="hidden md:flex items-center gap-2">
           {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => {
             // Show pages around current page
             let pageNum;
@@ -179,16 +180,22 @@ const PaginatedExerciseView: React.FC<PaginatedExerciseViewProps> = ({
           })}
         </div>
 
+        {/* Current page indicator for mobile */}
+        <div className="md:hidden text-sm font-medium text-slate-600 px-2">
+          {currentPage + 1} / {totalPages}
+        </div>
+
         <button
           onClick={goToNext}
           disabled={currentPage === totalPages - 1}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+          className={`flex items-center justify-center gap-2 px-4 md:px-6 py-3 md:py-3 rounded-xl font-semibold transition-all min-w-[100px] md:min-w-[120px] ${
             currentPage === totalPages - 1
               ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              : 'bg-antoree-green text-white hover:bg-antoree-darkGreen shadow-md hover:shadow-lg'
+              : 'bg-antoree-green text-white active:bg-antoree-darkGreen shadow-md active:shadow-lg active:scale-95'
           }`}
         >
-          Sau
+          <span className="hidden sm:inline">Sau</span>
+          <span className="sm:hidden">›</span>
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>

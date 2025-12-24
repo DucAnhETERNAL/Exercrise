@@ -11,7 +11,7 @@ export const submitToGoogleForm = async (
   config: GoogleFormConfig
 ): Promise<void> => {
   if (!config.formUrl || !config.nameEntryId || !config.scoreEntryId) {
-    throw new Error("Cấu hình Google Form chưa đầy đủ. Vui lòng liên hệ giáo viên.");
+    throw new Error("Cấu hình Google Form chưa đầy đủ. Vui lòng liên hệ Antoree.");
   }
 
   // Ensure URL ends with formResponse
