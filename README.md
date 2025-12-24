@@ -30,14 +30,5 @@ View your app in AI Studio: https://ai.studio/apps/drive/1cbA5EF8SR_GPn5d4a9KFeO
    ```bash
    npm run dev
    ```
-
-## Deploy to Vercel
-
-1. Push code to GitHub
-2. Import project to Vercel
-3. Add environment variables in Vercel dashboard:
-   - `GEMINI_API_KEY`
-   - `DRIVE_API_KEY`
-4. Deploy!
-
+   
 **Important:** Make sure to add both API keys as environment variables in Vercel project settings.
