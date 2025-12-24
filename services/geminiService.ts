@@ -569,6 +569,15 @@ export const generateExercises = async (
         delete section.contextText;
       }
       
+      // Strip markdown formatting from contextText (remove **word** → word)
+      if (section.contextText) {
+        section.contextText = section.contextText
+          .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove **bold** markdown
+          .replace(/\*([^*]+)\*/g, '$1')     // Remove *italic* markdown
+          .replace(/__([^_]+)__/g, '$1')     // Remove __bold__ markdown
+          .replace(/_([^_]+)_/g, '$1');      // Remove _italic_ markdown
+      }
+      
       // Validate multiple choice exercises: correctAnswer must match one of the options
       // This applies to LISTENING, READING, VOCABULARY, and GRAMMAR (all have options)
       const needsValidation = [
