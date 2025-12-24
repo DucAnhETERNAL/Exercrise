@@ -5,7 +5,7 @@ import ExerciseCard from './components/ExerciseCard';
 import PaginatedExerciseView from './components/PaginatedExerciseView';
 import { AlertProvider, useAlert } from './contexts/AlertContext';
 import { generateExercises } from './services/geminiService';
-  import { uploadToR2, loadFromR2 } from './services/r2Service';
+  import { uploadToBlob, loadFromBlob } from './services/blobService';
   import { submitToGoogleForm, submitToGoogleSheet } from './services/formService';
   import { Sparkles, Printer, RefreshCw, Eye, EyeOff, CheckCircle, Trophy, Copy, Share2, User, Cloud, Loader2, Save, FileCheck, MessageSquare, X, ExternalLink, Mic2 } from 'lucide-react';
 
@@ -78,19 +78,19 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleLoadExercise = (fileKey: string) => {
+  const handleLoadExercise = (blobUrl: string) => {
     setIsStudentMode(true);
-    setCurrentFileId(fileKey);
-    setLoadingStatus('loading_drive'); // Loading from R2
+    setCurrentFileId(blobUrl);
+    setLoadingStatus('loading_drive'); // Loading from Blob
     
-    loadFromR2(fileKey)
+    loadFromBlob(blobUrl)
       .then((data) => {
         setContent(data as GeneratedContent);
         // Clean URL visual only
         window.history.replaceState({}, document.title, window.location.pathname);
       })
       .catch(() => {
-        setError("Không thể tải bài tập từ R2. Link có thể bị hỏng hoặc file đã bị xóa.");
+        setError("Không thể tải bài tập từ Vercel Blob. Link có thể bị hỏng hoặc file đã bị xóa.");
       })
       .finally(() => {
         setLoadingStatus('idle');
@@ -141,23 +141,23 @@ const App: React.FC = () => {
   };
 
   // Teacher saves Exercise Template + Generates Link with Form Config
-  const handleSaveExerciseToR2 = async () => {
+  const handleSaveExerciseToBlob = async () => {
     if (!content) return;
 
     setLoadingStatus('uploading');
     try {
       const fileName = `GenEnglish_${preferences.topic || 'Exercise'}_${Date.now()}.json`;
       
-      const fileKey = await uploadToR2(content, fileName);
-      setCurrentFileId(fileKey); 
+      const blobUrl = await uploadToBlob(content, fileName);
+      setCurrentFileId(blobUrl); 
       
       // Use origin + pathname to ensure clean base URL (works better with mobile browsers like Zalo)
       const baseUrl = `${window.location.origin}${window.location.pathname}`;
-      // Encode fileKey properly for mobile browsers (Zalo mobile requires proper URL encoding)
-      const url = `${baseUrl}?fileId=${encodeURIComponent(fileKey)}`;
+      // Encode blobUrl properly for mobile browsers (Zalo mobile requires proper URL encoding)
+      const url = `${baseUrl}?fileId=${encodeURIComponent(blobUrl)}`;
       setShareLink(url);
     } catch (e: any) {
-      showAlert("Lỗi khi lưu vào R2: " + (e.message || JSON.stringify(e)), 'error');
+      showAlert("Lỗi khi lưu vào Vercel Blob: " + (e.message || JSON.stringify(e)), 'error');
     } finally {
       setLoadingStatus('idle');
     }
@@ -442,7 +442,7 @@ const App: React.FC = () => {
                           {loadingStatus === 'analyzing_video' && 'Đang phân tích video...'}
                           {loadingStatus === 'generating_content' && 'Đang tạo nội dung bài tập...'}
                           {loadingStatus === 'generating_images' && 'Đang vẽ hình minh họa (sẽ mất chút thời gian)...'}
-                          {loadingStatus === 'loading_drive' && 'Đang tải dữ liệu từ R2...'}
+                          {loadingStatus === 'loading_drive' && 'Đang tải dữ liệu từ Blob...'}
                           {loadingStatus === 'uploading' && 'Đang xử lý...'}
                           {!['analyzing_video', 'generating_content', 'generating_images', 'loading_drive', 'uploading'].includes(loadingStatus) && 'Đang xử lý...'}
                         </p>
@@ -746,12 +746,12 @@ const App: React.FC = () => {
                   {!isStudentMode && !isReviewMode && (
                     <>
                       <button 
-                         onClick={handleSaveExerciseToR2}
+                         onClick={handleSaveExerciseToBlob}
                          disabled={loadingStatus === 'uploading'}
                          className="flex items-center gap-2 px-3 py-2 bg-antoree-lightGreen text-antoree-green font-medium rounded-lg hover:bg-green-100 transition-colors border border-green-200"
                       >
                         {loadingStatus === 'uploading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        {loadingStatus === 'uploading' ? 'Đang lưu...' : 'Lưu Đề (R2)'}
+                        {loadingStatus === 'uploading' ? 'Đang lưu...' : 'Lưu Đề'}
                       </button>
                       <button 
                         onClick={() => setShowAnswers(!showAnswers)}

@@ -14,13 +14,7 @@ export default defineConfig(({ mode }) => {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.DRIVE_API_KEY': JSON.stringify(env.DRIVE_API_KEY || ''),
-        'process.env.CLOUDFLARE_R2_ACCOUNT_ID': JSON.stringify(env.CLOUDFLARE_R2_ACCOUNT_ID || ''),
-        'process.env.CLOUDFLARE_R2_ACCESS_KEY_ID': JSON.stringify(env.CLOUDFLARE_R2_ACCESS_KEY_ID || ''),
-        'process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY': JSON.stringify(env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || ''),
-        'process.env.CLOUDFLARE_R2_BUCKET_NAME': JSON.stringify(env.CLOUDFLARE_R2_BUCKET_NAME || ''),
-        'process.env.CLOUDFLARE_R2_PUBLIC_URL': JSON.stringify(env.CLOUDFLARE_R2_PUBLIC_URL || ''),
-        'process.env.CLOUDFLARE_R2_ENDPOINT': JSON.stringify(env.CLOUDFLARE_R2_ENDPOINT || ''),
-        'process.env.CLOUDFLARE_R2_REGION': JSON.stringify(env.CLOUDFLARE_R2_REGION || 'auto')
+        'process.env.BLOB_READ_WRITE_TOKEN': JSON.stringify(env.BLOB_READ_WRITE_TOKEN || '')
       },
       resolve: {
         alias: {
